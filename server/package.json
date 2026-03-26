@@ -1,0 +1,27 @@
+{
+  "name": "@resonance/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "tsup src/index.ts --format esm --dts --watch",
+    "build": "tsup src/index.ts --format esm --dts",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@resonance/core": "0.1.0",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "qrcode": "^1.5.4",
+    "zod": "^4.1.5"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.3",
+    "@types/qrcode": "^1.5.5",
+    "tsup": "^8.5.0",
+    "typescript": "^5.9.2"
+  }
+}

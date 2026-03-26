@@ -1,0 +1,22 @@
+{
+  "name": "@resonance/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "tsup src/index.ts --format esm --dts --watch",
+    "build": "tsup src/index.ts --format esm --dts",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "sql.js": "^1.13.0",
+    "zod": "^4.1.5"
+  },
+  "devDependencies": {
+    "@types/sql.js": "^1.4.9",
+    "tsup": "^8.5.0",
+    "typescript": "^5.9.2"
+  }
+}

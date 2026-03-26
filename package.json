@@ -1,0 +1,70 @@
+{
+  "name": "resonance",
+  "main": "app/dist/main.js",
+  "version": "0.1.0",
+  "private": true,
+  "author": "Resonance Music",
+  "description": "Native desktop music app inspired by Spotify.",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "qrcode": "^1.5.4",
+    "sql.js": "^1.13.0",
+    "zod": "^4.1.5"
+  },
+  "workspaces": [
+    "app",
+    "renderer",
+    "core",
+    "server"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm:dev:core\" \"npm:dev:server\" \"npm:dev:renderer\" \"npm:dev:app\"",
+    "dev:core": "npm run dev -w core",
+    "dev:server": "npm run dev -w server",
+    "dev:renderer": "npm run dev -w renderer",
+    "dev:app": "npm run dev -w app",
+    "build": "npm run build -w core && npm run build -w server && npm run build -w renderer && npm run build -w app",
+    "pack": "npm run build && electron-builder --dir",
+    "dist:win": "npm run build && electron-builder --win nsis",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run build -w core && npm run build -w server && npm run typecheck -w renderer && npm run typecheck -w app && npm run typecheck -w core && npm run typecheck -w server"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "electron": "^35.1.5",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.resonance.desktop",
+    "productName": "Resonance",
+    "directories": {
+      "app": ".",
+      "output": "release"
+    },
+    "files": [
+      "app/dist/**/*",
+      "app/assets/**/*",
+      "renderer/dist/**/*",
+      "core/dist/**/*",
+      "server/dist/**/*",
+      "db/**/*",
+      "node_modules/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "app/assets/icon.png",
+      "signAndEditExecutable": false,
+      "verifyUpdateCodeSignature": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  }
+}

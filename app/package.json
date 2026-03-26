@@ -1,0 +1,26 @@
+{
+  "name": "@resonance/app",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/main.js",
+  "scripts": {
+    "dev": "concurrently -k \"npm run dev:build\" \"npm run dev:electron\"",
+    "dev:build": "tsup --watch",
+    "dev:electron": "wait-on tcp:5173 file:dist/main.js file:dist/preload.cjs && electron .",
+    "build": "tsup",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@resonance/core": "0.1.0",
+    "@resonance/server": "0.1.0"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "electron": "^35.1.5",
+    "tsup": "^8.5.0",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.2",
+    "wait-on": "^8.0.5"
+  }
+}
