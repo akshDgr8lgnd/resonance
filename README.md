@@ -24,21 +24,25 @@
 
 ## Getting Started
 
-### Prerequisites
+### Option 1: Download the App (Recommended)
 
+If you just want to use Resonance, download the Windows `.exe` from the latest release:
+- [Latest Release](https://github.com/akshDgr8lgnd/resonance/releases/latest)
+
+### Option 2: Run from Source (Development)
+
+1. **Prerequisites**
 - [Node.js](https://nodejs.org/) (Version 20 or higher)
 - `npm` (v10+) or `yarn`
 
-### Configuration
-
-1. **Environment Setup**
+2. **Environment Setup**
    Create a `.env` file in the root directory:
    ```bash
    APP_PORT=3939
    ```
    `APP_PORT` is optional. If omitted, the app uses the default configured port.
 
-2. **Run in Development**
+3. **Run in Development**
    ```bash
    npm run dev
    ```
