@@ -1,89 +1,56 @@
+import ytSearch from "yt-search";
 import type { SearchResult } from "./types.js";
 
-type SearchConfig = {
-  youtubeApiKey: string | undefined;
-};
-
-const parseIsoDuration = (value: string | undefined) => {
-  if (!value) return 0;
-  const match = value.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
-  if (!match) return 0;
-  const [, hours = "0", minutes = "0", seconds = "0"] = match;
-  return Number(hours) * 3600 + Number(minutes) * 60 + Number(seconds);
-};
-
 export class SearchService {
-  constructor(private readonly config: SearchConfig) {}
-
-  updateApiKey(key: string) {
-    this.config.youtubeApiKey = key;
-  }
-
   async search(query: string): Promise<SearchResult[]> {
     const normalized = query.trim();
     if (!normalized) {
       return [];
     }
 
-    if (!this.config.youtubeApiKey) {
-      return this.buildFallbackResults(normalized);
-    }
-
     try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 5000);
-      const url = new URL("https://www.googleapis.com/youtube/v3/search");
-      url.searchParams.set("part", "snippet");
-      url.searchParams.set("q", normalized);
-      url.searchParams.set("type", "video");
-      url.searchParams.set("maxResults", "50");
-      url.searchParams.set("key", this.config.youtubeApiKey);
+      // Perform parallel searches
+      const [itunesResults, ytResults] = await Promise.all([
+        this.fetchItunesResults(normalized).catch(() => []),
+        this.fetchYoutubeScraperResults(normalized).catch(() => [])
+      ]);
 
-      const response = await fetch(url, { signal: controller.signal });
-      clearTimeout(timeout);
-      if (!response.ok) {
-        return this.buildFallbackResults(normalized);
-      }
+      const combined: SearchResult[] = [...itunesResults];
+      
+      // Add scraper results if they aren't already represented by iTunes results
+      // We'll use a simple title-based heuristic for deduplication if needed, 
+      // but it's often better to show both if IDs differ.
+      combined.push(...ytResults);
 
-      const data = await response.json();
-      const ids = (data.items ?? []).map((item: any) => item.id.videoId).filter(Boolean);
-      const durations = new Map<string, number>();
-      if (ids.length) {
-        const detailsUrl = new URL("https://www.googleapis.com/youtube/v3/videos");
-        detailsUrl.searchParams.set("part", "contentDetails");
-        detailsUrl.searchParams.set("id", ids.join(","));
-        detailsUrl.searchParams.set("key", this.config.youtubeApiKey);
-        const detailsResponse = await fetch(detailsUrl, { signal: controller.signal });
-        if (detailsResponse.ok) {
-          const details = await detailsResponse.json();
-          for (const item of details.items ?? []) {
-            durations.set(item.id, parseIsoDuration(item.contentDetails?.duration));
-          }
-        }
-      }
-
-      const results = (data.items ?? []).map((item: any) => ({
-        id: item.id.videoId,
-        title: item.snippet.title,
-        artists: [item.snippet.channelTitle],
-        duration: durations.get(item.id.videoId) ?? 0,
-        thumbnail: item.snippet.thumbnails?.medium?.url ?? item.snippet.thumbnails?.default?.url ?? null,
-        sourceUrl: `https://www.youtube.com/watch?v=${item.id.videoId}`,
-        videoId: item.id.videoId,
-        kind: "track" as const
-      }));
-
-      return results.length ? results : this.buildFallbackResults(normalized);
-    } catch {
-      return this.buildFallbackResults(normalized);
+      return combined;
+    } catch (error) {
+      console.error("Search failed:", error);
+      return this.buildStaticFallbackResults(normalized);
     }
+  }
+
+  private async fetchYoutubeScraperResults(query: string): Promise<SearchResult[]> {
+    const r = await ytSearch(query);
+    const videos = r.videos ?? [];
+    return videos.slice(0, 30).map((v) => ({
+      id: v.videoId,
+      title: v.title,
+      artists: [v.author.name],
+      album: null,
+      albumArtist: v.author.name,
+      duration: v.seconds,
+      thumbnail: v.thumbnail || null,
+      sourceUrl: v.url,
+      videoId: v.videoId,
+      kind: "track" as const
+    }));
   }
 
   private async fetchItunesResults(query: string): Promise<SearchResult[]> {
     const url = new URL("https://itunes.apple.com/search");
     url.searchParams.set("term", query);
     url.searchParams.set("entity", "song");
-    url.searchParams.set("limit", "100");
+    url.searchParams.set("limit", "25");
     url.searchParams.set("country", "IN");
 
     const response = await fetch(url);
@@ -118,19 +85,6 @@ export class SearchService {
     });
   }
 
-  private async buildFallbackResults(query: string): Promise<SearchResult[]> {
-    try {
-      const results = await this.fetchItunesResults(query);
-      if (results.length) {
-        return results;
-      }
-    } catch {
-      // Fall through to a generic resolver result.
-    }
-
-    return this.buildStaticFallbackResults(query);
-  }
-
   private buildStaticFallbackResults(query: string): SearchResult[] {
     const normalizedTitle = query
       .split(/\s+/)
@@ -142,9 +96,9 @@ export class SearchService {
       {
         id: `manual-${normalizedTitle.toLowerCase().replace(/\s+/g, "-")}`,
         title: normalizedTitle || "Unknown Track",
-        artists: ["Search offline"],
+        artists: ["Search results unavailable"],
         album: "Resonance",
-        albumArtist: "Search offline",
+        albumArtist: "Resonance",
         trackNumber: null,
         discNumber: null,
         duration: 0,

@@ -51,17 +51,17 @@ resonance/
 
 ## Current Major Files
 
-- `C:\Spotify - Clone - Codex\app\src\main.ts`
-- `C:\Spotify - Clone - Codex\app\src\preload.ts`
-- `C:\Spotify - Clone - Codex\renderer\src\App.tsx`
-- `C:\Spotify - Clone - Codex\renderer\src\styles.css`
-- `C:\Spotify - Clone - Codex\renderer\src\store.ts`
-- `C:\Spotify - Clone - Codex\core\src\search.ts`
-- `C:\Spotify - Clone - Codex\core\src\download.ts`
-- `C:\Spotify - Clone - Codex\core\src\library.ts`
-- `C:\Spotify - Clone - Codex\core\src\types.ts`
-- `C:\Spotify - Clone - Codex\server\src\index.ts`
-- `C:\Spotify - Clone - Codex\db\schema.sql`
+- `app/src/main.ts`
+- `app/src/preload.ts`
+- `renderer/src/App.tsx`
+- `renderer/src/styles.css`
+- `renderer/src/store.ts`
+- `core/src/search.ts`
+- `core/src/download.ts`
+- `core/src/library.ts`
+- `core/src/types.ts`
+- `server/src/index.ts`
+- `db/schema.sql`
 
 ## What Has Been Implemented
 
@@ -192,33 +192,21 @@ These are the highest-value next steps for continuing the UI polish.
 - track actions: like, queue, device, volume icon, mute state
 - richer now-playing metadata area
 
-### 3. Improve list/table interactions
+- **Cleaned Architecture**: Mono-repo structure (app, core, renderer, server, db) with clear IPC boundaries.
+- **Iconography**: Migrated to `lucide-react` for a native, modern look. Removed manual SVG handling.
+- **Playlist CRUD**: Full frontend support for creating, viewing, and deleting playlists, including track addition/removal.
+- **No-Key Search**: Hybrid search using iTunes (metadata) and YouTube scrapers (direct coverage)—no API key required.
+- **Auto-Updates**: Integrated `electron-updater` for seamless background updates from GitHub.
+- **Automated Publishing**: Configured `electron-builder` to automate GitHub Release uploads (requires `GH_TOKEN`).
+- **Cross-Platform Readiness**: Normalized absolute Windows paths to repo-relative paths in documentation.
 
-- hover-only row actions
-- selected row state
-- subtle separators instead of obvious card blocks
-- context-menu affordances
-- less bulky rows
-
-### 4. Improve album and artist pages
-
-- stronger hero headers with cover art and metadata
-- better soundtrack/compilation artist handling
-- separate album artist vs track artist rendering
-- optional dominant-color gradient based on cover art
-
-### 5. Improve library semantics
-
-- actual playlist CRUD UI
-- pinned collections and recent searches
-- sortable library sections
-- library search/filter inside sidebar
-
-### 6. Improve search experience
-
-- actual preview behavior or remove fake preview button
-- better grouping by tracks/albums/artists
-- search skeletons closer to final list layout
+### Current Roadmap & Status
+1.  [x] **Iconography Upgrade**: Integrated Lucide icons.
+2.  [x] **Playlist Management**: Implemented frontend UI for full CRUD.
+3.  [x] **No-Key Search**: Removed YouTube API key requirement.
+4.  [x] **Auto-Update System**: Integrated `electron-updater` (Ready for v0.1.1+).
+5.  [ ] **UI Refinement**: Spacing and density tuning for "Spotify Premium" feel.
+6.  [ ] **Performance Optimization**: Virtual paging for large libraries.
 
 ## Known Technical Caveats
 
@@ -265,14 +253,14 @@ npm run dist:win
 
 ## Built Outputs
 
-- `C:\Spotify - Clone - Codex\release\Resonance Setup 0.1.0.exe`
-- `C:\Spotify - Clone - Codex\release\win-unpacked\Resonance.exe`
+- `./release/Resonance Setup 0.1.0.exe`
+- `./release/win-unpacked/Resonance.exe`
 
 ## Logs
 
 Packaged app runtime log:
 
-- `C:\Users\G634JZR\AppData\Roaming\Resonance\resonance.log`
+- `%APPDATA%\Resonance\resonance.log`
 
 ## Verification Already Performed
 
@@ -280,15 +268,15 @@ Repeatedly verified during development:
 
 - `npm run build`
 - `npm run dist:win`
-- packaged app launch from `release\\win-unpacked\\Resonance.exe`
+- packaged app launch from `./release/win-unpacked/Resonance.exe`
 - search fallback returns real metadata for songs like `mast magan`
 - download saves track and cover art into local media storage
 
 ## Suggested First Steps For Claude Code
 
 1. Open:
-- `C:\Spotify - Clone - Codex\renderer\src\App.tsx`
-- `C:\Spotify - Clone - Codex\renderer\src\styles.css`
+- `renderer/src/App.tsx`
+- `renderer/src/styles.css`
 
 2. Focus the next pass on UI fidelity, not architecture.
 
@@ -299,9 +287,9 @@ Repeatedly verified during development:
 5. Keep branding as `Resonance`; do not use Spotify branding or logo.
 
 6. Preserve all packaging/runtime fixes already made in:
-- `C:\Spotify - Clone - Codex\app\src\main.ts`
-- `C:\Spotify - Clone - Codex\core\src\download.ts`
-- `C:\Spotify - Clone - Codex\core\src\search.ts`
+- `app/src/main.ts`
+- `core/src/download.ts`
+- `core/src/search.ts`
 
 ## Short Status Summary
 

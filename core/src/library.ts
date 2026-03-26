@@ -1,4 +1,6 @@
 import crypto from "node:crypto";
+import * as fs from "node:fs";
+import * as path from "node:path";
 import type { AppDatabase } from "./db.js";
 import type { DeviceRecord, DownloadJob, Playlist, Track, TrackCopy } from "./types.js";
 
@@ -212,6 +214,60 @@ export class LibraryService {
         this.db.run("INSERT INTO playlist_tracks (playlist_id, track_id, position) VALUES (?, ?, ?)", [playlistId, trackId, index]);
       });
     });
+  }
+  
+  getPlaylistTracks(playlistId: string): Track[] {
+    return this.db.queryAll(
+      `SELECT tracks.* FROM tracks
+       JOIN playlist_tracks ON playlist_tracks.track_id = tracks.id
+       WHERE playlist_tracks.playlist_id = ?
+       ORDER BY playlist_tracks.position ASC`,
+      [playlistId]
+    ).map(mapTrack);
+  }
+
+  addTrackToPlaylist(playlistId: string, trackId: string) {
+    const nextPositionRow = this.db.queryOne<{ maxPos: number | null }>("SELECT MAX(position) as maxPos FROM playlist_tracks WHERE playlist_id = ?", [playlistId]);
+    const nextPosition = (Number(nextPositionRow?.maxPos ?? -1)) + 1;
+    this.db.run("INSERT INTO playlist_tracks (playlist_id, track_id, position) VALUES (?, ?, ?)", [playlistId, trackId, nextPosition]);
+  }
+
+  syncFileSystem(mediaRoot: string) {
+    if (!fs.existsSync(mediaRoot)) return;
+    const files = fs.readdirSync(mediaRoot);
+    const audioFiles = files.filter(f => f.endsWith(".mp3") || f.endsWith(".opus") || f.endsWith(".m4a") || f.endsWith(".webm"));
+    
+    for (const filename of audioFiles) {
+      const id = path.parse(filename).name;
+      const exists = this.db.queryOne("SELECT id FROM tracks WHERE id = ? OR file_path LIKE ?", [id, `%${filename}`]);
+      if (!exists) {
+        const filePath = path.join(mediaRoot, filename);
+        let coverPath: string | null = null;
+        try {
+          const coversDir = path.join(mediaRoot, "covers");
+          if (fs.existsSync(coversDir)) {
+             const coverFiles = fs.readdirSync(coversDir).filter(f => f.startsWith(id));
+             coverPath = coverFiles.length > 0 ? path.join(coversDir, coverFiles[0]!) : null;
+          }
+        } catch (e) {}
+        
+        this.saveTrack({
+          id,
+          title: `Recovered: ${id}`,
+          artists: ["Unknown"],
+          album: "Recovered",
+          albumArtist: "Unknown",
+          trackNumber: null,
+          discNumber: null,
+          duration: 0,
+          filePath,
+          coverPath,
+          sourceUrl: "",
+          youtubeVideoId: null,
+          downloadedAt: new Date().toISOString()
+        });
+      }
+    }
   }
 
   deleteAlbum(albumName: string): Track[] {

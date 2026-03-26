@@ -91,7 +91,6 @@ export type AppSettings = {
   apiToken: string;
   serverPort: number;
   desktopDeviceId: string;
-  youtubeKey: string;
 };
 
 export type PlaybackResolution =

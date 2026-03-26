@@ -1,4 +1,6 @@
-import { app, BrowserWindow, ipcMain, Menu, Tray, nativeImage } from "electron";
+import { app, BrowserWindow, ipcMain, Menu, Tray, nativeImage, shell } from "electron";
+import pkg from "electron-updater";
+const { autoUpdater } = pkg;
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -90,6 +92,7 @@ const buildServices = async () => {
   const userDataPath = app.getPath("userData");
   const dbPath = path.join(userDataPath, "resonance.sqlite");
   const mediaRoot = path.join(userDataPath, "media");
+  fs.mkdirSync(mediaRoot, { recursive: true });
   const toolsRoot = path.join(userDataPath, "bin");
   const db = await createDatabase(dbPath);
   const library = new LibraryService(db);
@@ -107,7 +110,7 @@ const buildServices = async () => {
 
   const ytDlpPath = path.join(toolsRoot, process.platform, process.platform === "win32" ? "yt-dlp.exe" : "yt-dlp");
   const downloads = new DownloadService({ library, mediaRoot, ytDlpPath, deviceId: resolvedSettings.desktopDeviceId });
-  const search = new SearchService({ youtubeApiKey: resolvedSettings.youtubeKey || process.env.YOUTUBE_API_KEY });
+  const search = new SearchService();
   const queue = new QueueService();
   const jobs = new DownloadJobService(library, downloads);
   const sync = new SyncService(library, jobs);
@@ -117,7 +120,7 @@ const buildServices = async () => {
   await server.start();
   logLine(`Embedded server started on port ${server.settings.serverPort}`);
 
-  return { library, capsule, downloads, search, queue, server, sync, jobs, settings: resolvedSettings, settingsService: settings };
+  return { library, capsule, downloads, search, queue, server, sync, jobs, settings: resolvedSettings, settingsService: settings, mediaRoot };
 };
 
 const showMainWindow = async () => {
@@ -166,21 +169,35 @@ const registerWindowLifecycle = () => {
 const registerIpcHandlers = (services: Awaited<ReturnType<typeof buildServices>>) => {
   ipcMain.removeHandler("library:all");
   ipcMain.removeHandler("capsule:history");
-  ipcMain.removeHandler("search:query");
   ipcMain.removeHandler("download:track");
   ipcMain.removeHandler("download:album");
   ipcMain.removeHandler("playback:started");
   ipcMain.removeHandler("playback:finished");
   ipcMain.removeHandler("settings:pairing");
   ipcMain.removeHandler("library:storage-usage");
-  ipcMain.removeHandler("settings:update-youtube-key");
   ipcMain.removeHandler("settings:get");
+  ipcMain.removeHandler("library:open-folder");
+  ipcMain.removeHandler("library:folder-path");
+  ipcMain.removeHandler("playlist:create");
+  ipcMain.removeHandler("playlist:all");
+  ipcMain.removeHandler("playlist:rename");
+  ipcMain.removeHandler("playlist:delete");
+  ipcMain.removeHandler("playlist:set-tracks");
+  ipcMain.removeHandler("playlist:add-track");
 
   ipcMain.handle("library:all", () => ({
     tracks: services.library.getTracks(),
     playlists: services.library.getPlaylists(),
     liveSession: services.capsule.getLiveSession()
   }));
+
+  ipcMain.handle("library:sync", () => services.library.syncFileSystem(services.mediaRoot));
+  ipcMain.handle("library:folder-path", () => services.mediaRoot);
+  ipcMain.handle("library:open-folder", async () => {
+    fs.mkdirSync(services.mediaRoot, { recursive: true });
+    const error = await shell.openPath(services.mediaRoot);
+    return { ok: !error, error };
+  });
 
   ipcMain.handle("library:storage-usage", () => services.downloads.getStorageUsage());
 
@@ -243,13 +260,15 @@ const registerIpcHandlers = (services: Awaited<ReturnType<typeof buildServices>>
     return response.json();
   });
 
-  ipcMain.handle("settings:update-youtube-key", (_event, key: string) => {
-    services.settingsService.updateYoutubeKey(key);
-    services.search.updateApiKey(key);
-    return { ok: true };
-  });
-
   ipcMain.handle("settings:get", () => services.settingsService.get());
+
+  ipcMain.handle("playlist:create", (_event, name: string) => services.library.createPlaylist(name));
+  ipcMain.handle("playlist:all", () => services.library.getPlaylists());
+  ipcMain.handle("playlist:rename", (_event, payload: { id: string; name: string }) => services.library.renamePlaylist(payload.id, payload.name));
+  ipcMain.handle("playlist:delete", (_event, id: string) => services.library.deletePlaylist(id));
+  ipcMain.handle("playlist:set-tracks", (_event, payload: { playlistId: string; trackIds: string[] }) => services.library.setPlaylistTracks(payload.playlistId, payload.trackIds));
+  ipcMain.handle("playlist:get-tracks", (_event, id: string) => services.library.getPlaylistTracks(id));
+  ipcMain.handle("playlist:add-track", (_event, payload: { playlistId: string; trackId: string }) => services.library.addTrackToPlaylist(payload.playlistId, payload.trackId));
 };
 
 const createMainWindow = async () => {
@@ -318,10 +337,20 @@ app.setAppUserModelId("com.resonance.desktop");
 app.whenReady().then(async () => {
   if (!app.isPackaged) {
     loadLocalEnv();
+  } else {
+    void autoUpdater.checkForUpdatesAndNotify();
   }
   logLine("App ready");
   createTray();
   await createMainWindow();
+});
+
+process.stdout.on("error", (error: NodeJS.ErrnoException) => {
+  if (error.code !== "EPIPE") throw error;
+});
+
+process.stderr.on("error", (error: NodeJS.ErrnoException) => {
+  if (error.code !== "EPIPE") throw error;
 });
 
 app.on("before-quit", () => {

@@ -13,8 +13,18 @@ declare global {
       notifyPlaybackFinished: (trackId: string, durationPlayed: number) => Promise<any>;
       deleteAlbum: (albumName: string) => Promise<any>;
       fetchStorageUsage: () => Promise<number>;
-      updateYoutubeKey: (key: string) => Promise<{ ok: boolean }>;
       fetchSettings: () => Promise<any>;
+      getLibraryFolderPath: () => Promise<string>;
+      openLibraryFolder: () => Promise<{ ok: boolean; error?: string }>;
+      // Playlists
+      createPlaylist: (name: string) => Promise<any>;
+      getPlaylists: () => Promise<any[]>;
+      renamePlaylist: (id: string, name: string) => Promise<any>;
+      deletePlaylist: (id: string) => Promise<any>;
+      setPlaylistTracks: (playlistId: string, trackIds: string[]) => Promise<any>;
+      getPlaylistTracks: (playlistId: string) => Promise<any[]>;
+      addTrackToPlaylist: (playlistId: string, trackId: string) => Promise<any>;
+      syncLibrary: () => Promise<any>;
     };
   }
 }

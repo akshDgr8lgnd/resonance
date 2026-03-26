@@ -5,130 +5,35 @@ import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxi
 import resonanceMark from "./assets/logo.png";
 import { usePlayerStore } from "./store";
 import "./styles.css";
+import {
+  Home,
+  Search,
+  Library,
+  History,
+  Settings,
+  Plus,
+  ArrowRight,
+  ChevronLeft,
+  ChevronRight,
+  Play,
+  Pause,
+  SkipBack,
+  SkipForward,
+  Shuffle,
+  Repeat,
+  Heart,
+  Volume2,
+  ListMusic,
+  Maximize,
+  User,
+  Download,
+  Trash2,
+  MoreVertical,
+  Disc,
+  Mic2
+} from "lucide-react";
 
-// ─── SVG Icons ───────────────────────────────────────────────────────────────
-type IconProps = { size?: number; className?: string };
-const Icon = {
-  Home: ({ size = 24 }: IconProps) => (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
-      <path d="M12.5 3.247a1 1 0 0 0-1 0L4 7.577V20h4.5v-6h7V20H20V7.577l-7.5-4.33zm-2-1.732a3 3 0 0 1 3 0l7.5 4.33A2 2 0 0 1 22 7.576V21a1 1 0 0 1-1 1h-6.5a1 1 0 0 1-1-1v-6h-3v6a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V7.577a2 2 0 0 1 1-1.732l7.5-4.33z"/>
-    </svg>
-  ),
-  HomeFill: ({ size = 24 }: IconProps) => (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
-      <path d="M13.5 1.515a3 3 0 0 0-3 0L3 5.845A2 2 0 0 0 2 7.577V21a1 1 0 0 0 1 1h6v-6h6v6h6a1 1 0 0 0 1-1V7.577a2 2 0 0 0-1-1.732l-7.5-4.33z"/>
-    </svg>
-  ),
-  Search: ({ size = 24 }: IconProps) => (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
-      <path d="M10.533 1.279c-5.18 0-9.542 4.261-9.542 9.522 0 5.26 4.363 9.522 9.542 9.522 1.847 0 3.571-.5 5.043-1.371l3.943 3.944a1 1 0 1 0 1.414-1.414l-3.942-3.944a9.454 9.454 0 0 0 1.544-5.237c0-5.261-4.363-9.522-9.542-9.522zm-7.542 9.522c0-4.178 3.344-7.522 7.542-7.522s7.542 3.344 7.542 7.522-3.344 7.522-7.542 7.522S2.991 15 2.991 10.801z"/>
-    </svg>
-  ),
-  Library: ({ size = 24 }: IconProps) => (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
-      <path d="M3 22a1 1 0 0 1-1-1V3a1 1 0 0 1 2 0v18a1 1 0 0 1-1 1zM15.5 2.134A1 1 0 0 0 14 3v18a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V6.464a1 1 0 0 0-.5-.866l-6-3.464zM9 2a1 1 0 0 0-1 1v18a1 1 0 0 0 2 0V3a1 1 0 0 0-1-1z"/>
-    </svg>
-  ),
-  Capsule: ({ size = 24 }: IconProps) => (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
-      <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16zm-1-9V7h2v4h4v2h-6V11z"/>
-    </svg>
-  ),
-  Settings: ({ size = 24 }: IconProps) => (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
-      <path d="M9.743 2.748a9.87 9.87 0 0 1 4.514 0l.42 1.735a1.93 1.93 0 0 0 2.644 1.342l1.658-.726a9.97 9.97 0 0 1 3.193 3.193l-.726 1.658a1.93 1.93 0 0 0 1.342 2.644l1.735.42a9.87 9.87 0 0 1 0 4.514l-1.735.42a1.93 1.93 0 0 0-1.342 2.644l.726 1.658a9.97 9.97 0 0 1-3.193 3.193l-1.658-.726a1.93 1.93 0 0 0-2.644 1.342l-.42 1.735a9.87 9.87 0 0 1-4.514 0l-.42-1.735a1.93 1.93 0 0 0-2.644-1.342l-1.658.726A9.97 9.97 0 0 1 1.83 17.93l.726-1.658a1.93 1.93 0 0 0-1.342-2.644L.48 13.21a9.87 9.87 0 0 1 0-4.514l1.735-.42A1.93 1.93 0 0 0 3.556 5.63L2.83 3.972A9.97 9.97 0 0 1 6.023.779l1.658.726a1.93 1.93 0 0 0 2.644-1.342l.42-1.735zM12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z"/>
-    </svg>
-  ),
-  Plus: ({ size = 16 }: IconProps) => (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor">
-      <path d="M15.25 8a.75.75 0 0 1-.75.75H8.75v5.75a.75.75 0 0 1-1.5 0V8.75H1.5a.75.75 0 0 1 0-1.5h5.75V1.5a.75.75 0 0 1 1.5 0v5.75h5.75a.75.75 0 0 1 .75.75z"/>
-    </svg>
-  ),
-  ArrowRight: ({ size = 16 }: IconProps) => (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor">
-      <path d="M1 8a.75.75 0 0 1 .75-.75h10.69L9.22 4.03a.75.75 0 1 1 1.06-1.06l4.5 4.5a.75.75 0 0 1 0 1.06l-4.5 4.5a.75.75 0 0 1-1.06-1.06l3.22-3.22H1.75A.75.75 0 0 1 1 8z"/>
-    </svg>
-  ),
-  ChevronLeft: ({ size = 16 }: IconProps) => (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor">
-      <path d="M11.03.47a.75.75 0 0 1 0 1.06L4.56 8l6.47 6.47a.75.75 0 1 1-1.06 1.06L2.44 8 9.97.47a.75.75 0 0 1 1.06 0z"/>
-    </svg>
-  ),
-  ChevronRight: ({ size = 16 }: IconProps) => (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor">
-      <path d="M4.97.47a.75.75 0 0 0 0 1.06L11.44 8 4.97 14.53a.75.75 0 1 0 1.06 1.06L13.56 8 6.03.47a.75.75 0 0 0-1.06 0z"/>
-    </svg>
-  ),
-  Play: ({ size = 16 }: IconProps) => (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor">
-      <path d="M3 1.713a.7.7 0 0 1 1.05-.607l10.89 6.288a.7.7 0 0 1 0 1.212L4.05 14.894A.7.7 0 0 1 3 14.288V1.713z"/>
-    </svg>
-  ),
-  Pause: ({ size = 16 }: IconProps) => (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor">
-      <path d="M2.7 1a.7.7 0 0 0-.7.7v12.6a.7.7 0 0 0 .7.7h2.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7H2.7zm8 0a.7.7 0 0 0-.7.7v12.6a.7.7 0 0 0 .7.7h2.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7h-2.6z"/>
-    </svg>
-  ),
-  SkipBack: ({ size = 16 }: IconProps) => (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor">
-      <path d="M3.3 1a.7.7 0 0 1 .7.7v5.15l9.95-5.744a.7.7 0 0 1 1.05.606v12.575a.7.7 0 0 1-1.05.607L4 9.149V14.3a.7.7 0 0 1-1.4 0V1.7a.7.7 0 0 1 .7-.7z"/>
-    </svg>
-  ),
-  SkipForward: ({ size = 16 }: IconProps) => (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor">
-      <path d="M12.7 1a.7.7 0 0 0-.7.7v5.15L2.05 1.107A.7.7 0 0 0 1 1.712v12.575a.7.7 0 0 0 1.05.607L12 9.149V14.3a.7.7 0 0 0 1.4 0V1.7a.7.7 0 0 0-.7-.7z"/>
-    </svg>
-  ),
-  Shuffle: ({ size = 16 }: IconProps) => (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor">
-      <path d="M13.151.922a.75.75 0 1 0-1.06 1.06L13.109 3H11.16a3.75 3.75 0 0 0-2.873 1.34l-6.173 7.356A2.25 2.25 0 0 1 .39 12.5H0V14h.391a3.75 3.75 0 0 0 2.873-1.34l6.173-7.356A2.25 2.25 0 0 1 11.16 4.5h1.949l-1.017 1.018a.75.75 0 0 0 1.06 1.06L15.98 3.75 13.15.922zM.391 3.5H0V2h.391c1.109 0 2.16.49 2.873 1.34L4.89 5.277l-.979 1.167-1.796-2.14A2.25 2.25 0 0 0 .39 3.5zm7.765 7.364l1.016 1.211A3.75 3.75 0 0 0 12.045 13.5h1.86l-1.017 1.018a.75.75 0 1 0 1.06 1.06l2.829-2.828-2.829-2.828a.75.75 0 1 0-1.06 1.06l1.017 1.018h-1.86a2.25 2.25 0 0 1-1.724-.803l-1.07-1.275-.983 1.171z"/>
-    </svg>
-  ),
-  Repeat: ({ size = 16 }: IconProps) => (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor">
-      <path d="M0 4.75A3.75 3.75 0 0 1 3.75 1h8.5A3.75 3.75 0 0 1 16 4.75v5a3.75 3.75 0 0 1-3.75 3.75H9.81l1.018 1.018a.75.75 0 1 1-1.06 1.06L6.939 12.75l2.829-2.828a.75.75 0 1 1 1.06 1.06L9.811 12.5h2.439a2.25 2.25 0 0 0 2.25-2.25v-5a2.25 2.25 0 0 0-2.25-2.25h-8.5A2.25 2.25 0 0 0 1.5 4.75v5A2.25 2.25 0 0 0 3.75 12H5v1.5H3.75A3.75 3.75 0 0 1 0 9.75v-5z"/>
-    </svg>
-  ),
-  Heart: ({ size = 16, filled = false }: IconProps & { filled?: boolean }) => filled ? (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor">
-      <path d="M15.724 4.22A4.313 4.313 0 0 0 12.192.814a4.269 4.269 0 0 0-3.622 1.13.837.837 0 0 1-1.14 0 4.272 4.272 0 0 0-3.623-1.13A4.313 4.313 0 0 0 .277 4.22c-.162.787-.053 1.61.32 2.336l6.91 12.282a.56.56 0 0 0 .978 0l6.91-12.282a4.236 4.236 0 0 0 .329-2.336z"/>
-    </svg>
-  ) : (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor">
-      <path d="M1.69 2A4.582 4.582 0 0 1 8 2.023 4.583 4.583 0 0 1 11.88.817h.002a4.618 4.618 0 0 1 3.782 3.65 4.574 4.574 0 0 1-.306 2.242l-.015.031-.013.023-6.966 12.667-.003.004a.998.998 0 0 1-1.724 0l-.003-.004-6.966-12.667A4.574 4.574 0 0 1 .385 4.468 4.618 4.618 0 0 1 1.69 2zm6.252 1.679A2.83 2.83 0 0 0 6.866 3a2.91 2.91 0 0 0-2.084.858L3.8 4.866a.998.998 0 0 1-1.413-1.412L3.37 2.44A4.91 4.91 0 0 1 6.866 1c.836 0 1.65.216 2.386.6A2.997 2.997 0 0 0 10.88 2.8a2.93 2.93 0 0 0 1.003-.175.998.998 0 1 1 .682 1.876 4.927 4.927 0 0 1-1.685.299 5.002 5.002 0 0 1-2.929-.96l-.001-.001.002.001z"/>
-    </svg>
-  ),
-  Volume: ({ size = 16 }: IconProps) => (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor">
-      <path d="M9.741.85a.75.75 0 0 1 .375.65v13a.75.75 0 0 1-1.125.65l-6.925-4a3.642 3.642 0 0 1-1.35-4.975 3.65 3.65 0 0 1 1.35-1.35l6.925-4a.75.75 0 0 1 .75 0zm-6.924 5.3a2.143 2.143 0 1 0 0 3.8l5.675 3.277.612.424V2.25L8.49 2.672 2.817 6.15zm7.58-.425a.75.75 0 1 1 .75 1.299 2.75 2.75 0 0 1 0 4.752.75.75 0 1 1-.75-1.3 1.25 1.25 0 0 0 0-2.15.75.75 0 0 1-.375-.647V5.75a.75.75 0 0 1 .375-.65zm1.5-2.598a.75.75 0 1 1 .75 1.299A5.25 5.25 0 0 1 15 8a5.25 5.25 0 0 1-2.353 4.374.75.75 0 1 1-.75-1.299A3.75 3.75 0 0 0 13.5 8a3.75 3.75 0 0 0-1.603-3.075z"/>
-    </svg>
-  ),
-  Queue: ({ size = 16 }: IconProps) => (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor">
-      <path d="M0 14.5a.75.75 0 0 1 .75-.75h14.5a.75.75 0 0 1 0 1.5H.75a.75.75 0 0 1-.75-.75zm0-4a.75.75 0 0 1 .75-.75h14.5a.75.75 0 0 1 0 1.5H.75A.75.75 0 0 1 0 10.5zm14.785-7.658-6.488 3.503a.75.75 0 0 1-.594 0L1.215 2.842A.75.75 0 0 1 1.215 1.5l6.488 3.503a.75.75 0 0 1 .594 0l6.488-3.503a.75.75 0 0 1 0 1.342z"/>
-    </svg>
-  ),
-  Expand: ({ size = 16 }: IconProps) => (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor">
-      <path d="M6.03 1.75a.75.75 0 0 1 0-1.5H14.5a.75.75 0 0 1 .75.75v8.47a.75.75 0 0 1-1.5 0V3.31L1.28 15.78a.75.75 0 0 1-1.06-1.06L12.69 2.25H6.03zm5.22 5.47a.75.75 0 0 1 .75-.75h.01a.75.75 0 0 1 0 1.5h-.01a.75.75 0 0 1-.75-.75z"/>
-    </svg>
-  ),
-  User: ({ size = 16 }: IconProps) => (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor">
-      <path d="M6 2.75C6 1.784 6.784 1 7.75 1h.5C9.216 1 10 1.784 10 2.75v.5C10 4.216 9.216 5 8.25 5h-.5C6.784 5 6 4.216 6 3.25v-.5zM7.75 2.5a.25.25 0 0 0-.25.25v.5c0 .138.112.25.25.25h.5a.25.25 0 0 0 .25-.25v-.5a.25.25 0 0 0-.25-.25h-.5zM3 10.25A3.25 3.25 0 0 1 6.25 7h3.5A3.25 3.25 0 0 1 13 10.25v3.5a.75.75 0 0 1-1.5 0v-3.5c0-.966-.784-1.75-1.75-1.75h-3.5c-.966 0-1.75.784-1.75 1.75v3.5a.75.75 0 0 1-1.5 0v-3.5z"/>
-    </svg>
-  ),
-  Download: ({ size = 16 }: IconProps) => (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor">
-      <path d="M8 1a.75.75 0 0 1 .75.75V7.69l1.47-1.47a.75.75 0 0 1 1.06 1.06L8 10.56l-3.28-3.28a.75.75 0 1 1 1.06-1.06L7.25 7.69V1.75A.75.75 0 0 1 8 1zM1.5 13.5A.75.75 0 0 1 2.25 13h11.5a.75.75 0 0 1 0 1.5H2.25a.75.75 0 0 1-.75-.75z"/>
-    </svg>
-  ),
-  Trash: ({ size = 16 }: IconProps) => (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor">
-      <path d="M5.5 1.5A1.5 1.5 0 0 1 7 0h2a1.5 1.5 0 0 1 1.5 1.5h4a.75.75 0 0 1 0 1.5h-13a.75.75 0 0 1 0-1.5h4zM4.75 4h6.5v9.5c0 .828-.672 1.5-1.5 1.5h-3.5c-.828 0-1.5-.672-1.5-1.5V4zm2 1v8h1V5h-1zm2 0v8h1V5h-1z"/>
-    </svg>
-  ),
-};
+// Lucide icons are used instead of manual SVG objects.
 
 const formatSize = (bytes: number) => {
   if (bytes === 0) return "0 B";
@@ -287,6 +192,25 @@ const buildArtists = (tracks: Track[]): ArtistSummary[] => {
   return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
 };
 
+const PlaylistTracksView = ({ 
+  playlistId, 
+  currentTrackId, 
+  onPlay 
+}: { 
+  playlistId: string; 
+  currentTrackId: string | null; 
+  onPlay: (track: Track, tracks: Track[]) => void; 
+}) => {
+  const query = useQuery<Track[]>({
+    queryKey: ["playlist-tracks", playlistId],
+    queryFn: async () => {
+      return window.resonance.getPlaylistTracks(playlistId);
+    }
+  });
+
+  return <TrackTable tracks={query.data ?? []} currentTrackId={currentTrackId} onPlay={onPlay} />;
+};
+
 const buildCollections = (tracks: Track[], albums: AlbumSummary[], artists: ArtistSummary[]): CollectionSummary[] => {
   const collections: CollectionSummary[] = [];
   const liked = tracks.slice(0, Math.min(tracks.length, 12));
@@ -359,7 +283,7 @@ const SectionShelf = ({
             <Artwork src={item.coverPath} alt={item.name} size="lg" round={roundArtists} />
             <strong>{item.name}</strong>
             <span>{item.subtitle}</span>
-            <div className="play-fab"><Icon.Play size={20} /></div>
+            <div className="play-fab"><Play size={20} fill="currentColor" /></div>
           </button>
         ))}
       </div>
@@ -367,8 +291,47 @@ const SectionShelf = ({
   );
 };
 
-const Sidebar = ({ collections, currentTrackId, onPlay }: { collections: CollectionSummary[]; currentTrackId: string | null; onPlay: (track: Track, tracks: Track[]) => void }) => {
+const Sidebar = ({ 
+  collections, 
+  albums,
+  artists,
+  playlists,
+  currentTrackId, 
+  onPlay,
+  onCreatePlaylist
+}: { 
+  collections: CollectionSummary[]; 
+  playlists: Array<{ id: string; name: string; trackCount: number }>;
+  currentTrackId: string | null; 
+  onPlay: (track: Track, tracks: Track[]) => void; 
+  onCreatePlaylist: () => void;
+  albums: AlbumSummary[];
+  artists: ArtistSummary[];
+}) => {
   const navigate = useNavigate();
+  const [activeFilter, setActiveFilter] = useState<"all" | "playlists" | "albums" | "artists">("all");
+
+  const sidebarItems = useMemo(() => {
+    const items: Array<{ id: string; name: string; subtitle: string; coverPath: string | null; tracks: Track[]; type: "album" | "artist" | "playlist" | "liked" }> = [];
+    
+    if (activeFilter === "all" || activeFilter === "playlists") {
+      items.push(...playlists.map(p => ({ id: p.id, name: p.name, subtitle: `Playlist • ${p.trackCount} songs`, coverPath: null, tracks: [], type: "playlist" as const })));
+    }
+    
+    if (activeFilter === "all" || activeFilter === "albums") {
+      // In "all" view, we use the limited collections for a cleaner look, but in "albums" view we show everything.
+      const source = activeFilter === "albums" ? albums : albums.slice(0, 8);
+      items.push(...source.map(a => ({ id: a.id, name: a.name, subtitle: `Album • ${a.artist}`, coverPath: a.coverPath, tracks: a.tracks, type: "album" as const })));
+    }
+
+    if (activeFilter === "all" || activeFilter === "artists") {
+      const source = activeFilter === "artists" ? artists : artists.slice(0, 8);
+      items.push(...source.map(a => ({ id: a.id, name: a.name, subtitle: "Artist", coverPath: a.coverPath, tracks: a.tracks, type: "artist" as const })));
+    }
+
+    return items;
+  }, [activeFilter, playlists, albums, artists]);
+
   return (
     <aside className="sidebar-shell">
       <section className="nav-panel">
@@ -380,7 +343,7 @@ const Sidebar = ({ collections, currentTrackId, onPlay }: { collections: Collect
           <NavLink to="/" end className="nav-link">
             {({ isActive }) => (
               <>
-                {isActive ? <Icon.HomeFill size={24} /> : <Icon.Home size={24} />}
+                {isActive ? <Home size={24} fill="currentColor" /> : <Home size={24} />}
                 <span>Home</span>
               </>
             )}
@@ -388,7 +351,7 @@ const Sidebar = ({ collections, currentTrackId, onPlay }: { collections: Collect
           <NavLink to="/search" className="nav-link">
             {({ isActive }) => (
               <>
-                <Icon.Search size={24} />
+                <Search size={24} />
                 <span>Search</span>
               </>
             )}
@@ -396,7 +359,7 @@ const Sidebar = ({ collections, currentTrackId, onPlay }: { collections: Collect
           <NavLink to="/library" className="nav-link">
             {({ isActive }) => (
               <>
-                <Icon.Library size={24} />
+                <Library size={24} />
                 <span>Your Library</span>
               </>
             )}
@@ -404,7 +367,7 @@ const Sidebar = ({ collections, currentTrackId, onPlay }: { collections: Collect
           <NavLink to="/capsule" className="nav-link">
             {({ isActive }) => (
               <>
-                <Icon.Capsule size={24} />
+                <History size={24} />
                 <span>Sound Capsule</span>
               </>
             )}
@@ -412,7 +375,7 @@ const Sidebar = ({ collections, currentTrackId, onPlay }: { collections: Collect
           <NavLink to="/settings" className="nav-link">
             {({ isActive }) => (
               <>
-                <Icon.Settings size={24} />
+                <Settings size={24} />
                 <span>Settings</span>
               </>
             )}
@@ -422,37 +385,70 @@ const Sidebar = ({ collections, currentTrackId, onPlay }: { collections: Collect
       <section className="library-panel">
         <div className="library-head">
           <div className="library-head-left">
-            <Icon.Library size={24} />
+            <Library size={24} />
             <span>Your Library</span>
           </div>
           <div className="library-head-right">
-            <button className="circle-button small" title="Create playlist"><Icon.Plus size={16} /></button>
-            <button className="circle-button small" title="Expand"><Icon.ArrowRight size={16} /></button>
+            <button className="circle-button small" title="Create playlist" onClick={onCreatePlaylist}><Plus size={16} /></button>
+            <button className="circle-button small" title="Expand"><ArrowRight size={16} /></button>
           </div>
         </div>
         <div className="library-filter-row">
-          <button className="filter-pill active">Playlists</button>
-          <button className="filter-pill">Albums</button>
-          <button className="filter-pill">Artists</button>
+          <button 
+            className={activeFilter === "all" ? "filter-pill active" : "filter-pill"} 
+            onClick={() => setActiveFilter("all")}
+          >
+            All
+          </button>
+          <button 
+            className={activeFilter === "playlists" ? "filter-pill active" : "filter-pill"} 
+            onClick={() => setActiveFilter("playlists")}
+          >
+            Playlists
+          </button>
+          <button 
+            className={activeFilter === "albums" ? "filter-pill active" : "filter-pill"} 
+            onClick={() => setActiveFilter("albums")}
+          >
+            Albums
+          </button>
+          <button 
+            className={activeFilter === "artists" ? "filter-pill active" : "filter-pill"} 
+            onClick={() => setActiveFilter("artists")}
+          >
+            Artists
+          </button>
         </div>
         <div className="collection-list">
-          {collections.length ? collections.map((collection) => {
-            const isActive = currentTrackId ? collection.tracks.some((track) => track.id === currentTrackId) : false;
-            return (
-              <button 
-                key={collection.id} 
-                className={isActive ? "collection-row active" : "collection-row"} 
-                onClick={() => navigate(`/library?tab=albums&album=${encodeURIComponent(collection.id)}`)}
-                title="Click to open album"
-              >
-                <Artwork src={collection.coverPath} alt={collection.name} size="sm" />
-                <div>
-                  <strong>{collection.name}</strong>
-                  <span>{collection.subtitle}</span>
-                </div>
-              </button>
-            );
-          }) : <div className="empty-card slim">Your albums and artists will appear here after you download tracks.</div>}
+          {sidebarItems.length > 0 ? (
+            sidebarItems.map((item) => {
+              const isActive = currentTrackId ? item.tracks.some((track) => track.id === currentTrackId) : false;
+              const isPlaylist = item.type === "playlist";
+              
+              return (
+                <button 
+                  key={`${item.type}-${item.id}`} 
+                  className={isActive ? "collection-row active" : "collection-row"} 
+                  onClick={() => {
+                    if (isPlaylist) navigate(`/library?tab=playlists&playlist=${item.id}`);
+                    else if (item.type === "album") navigate(`/library?tab=albums&album=${encodeURIComponent(item.id)}`);
+                    else if (item.type === "artist") navigate(`/library?tab=artists&artist=${encodeURIComponent(item.id)}`);
+                  }}
+                  title={`Click to open ${item.type}`}
+                >
+                  {item.coverPath ? (
+                    <Artwork src={item.coverPath} alt={item.name} size="sm" round={item.type === "artist"} />
+                  ) : (
+                    <div className={item.type === "artist" ? "artwork-placeholder sm round" : "artwork-placeholder sm"}><History size={20} /></div>
+                  )}
+                  <div>
+                    <strong>{item.name}</strong>
+                    <span>{item.subtitle}</span>
+                  </div>
+                </button>
+              );
+            })
+          ) : <div className="empty-card slim">No matching items found.</div>}
         </div>
       </section>
     </aside>
@@ -464,11 +460,11 @@ const MainHeader = ({ title, subtitle }: { title: string; subtitle: string }) =>
   return (
     <header className="main-header">
       <div className="header-controls">
-        <button className="circle-button" onClick={() => navigate(-1)} title="Back"><Icon.ChevronLeft size={16} /></button>
-        <button className="circle-button" onClick={() => navigate(1)} title="Forward"><Icon.ChevronRight size={16} /></button>
+        <button className="circle-button" onClick={() => navigate(-1)} title="Back"><ChevronLeft size={16} /></button>
+        <button className="circle-button" onClick={() => navigate(1)} title="Forward"><ChevronRight size={16} /></button>
       </div>
       <div className="header-actions">
-        <button className="profile-chip" title="Profile"><Icon.User size={14} /></button>
+        <button className="profile-chip" title="Profile"><User size={14} /></button>
       </div>
     </header>
   );
@@ -477,45 +473,81 @@ const MainHeader = ({ title, subtitle }: { title: string; subtitle: string }) =>
 const TrackTable = ({
   tracks,
   currentTrackId,
-  onPlay
+  onPlay,
+  onAddToPlaylist
 }: {
   tracks: Track[];
   currentTrackId: string | null;
   onPlay: (track: Track, sourceTracks: Track[]) => void;
-}) => (
+  onAddToPlaylist?: (track: Track) => void;
+}) => {
+  const [menuTrackId, setMenuTrackId] = useState<string | null>(null);
+  const navigate = useNavigate();
+
+  return (
   <div className="track-table">
     <div className="track-table-head">
       <span>#</span>
       <span>Title</span>
       <span>Album</span>
       <span style={{ textAlign: 'right' }}>Duration</span>
+      {onAddToPlaylist && <span style={{ textAlign: 'right' }}></span>}
     </div>
-    {tracks.map((track, index) => (
-      <button key={track.id} className={currentTrackId === track.id ? "track-table-row active" : "track-table-row"} onClick={() => onPlay(track, tracks)}>
-        <div className="track-index-cell">
-          <span className="track-index-num">{index + 1}</span>
-          <span className="track-index-icon">
-            {currentTrackId === track.id ? <Icon.Pause size={14} /> : <Icon.Play size={14} />}
-          </span>
-        </div>
-        <div className="track-main">
-          <Artwork src={track.coverPath} alt={track.title} size="sm" />
-          <div>
-            <strong>{track.title}</strong>
-            <span>{track.artists.join(", ")}</span>
+    {tracks.slice(0, 500).map((track, index) => (
+      <div key={track.id} className="track-row-shell">
+        <button className={currentTrackId === track.id ? "track-table-row active" : "track-table-row"} onClick={() => onPlay(track, tracks)}>
+          <div className="track-index-cell">
+            <span className="track-index-num">{index + 1}</span>
+            <span className="track-index-icon">
+              {currentTrackId === track.id ? <Pause size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" />}
+            </span>
           </div>
-        </div>
-        <span className="track-album-name">{track.album ?? "Single"}</span>
-        <span className="track-duration">{formatDuration(track.duration)}</span>
-      </button>
+          <div className="track-main">
+            <Artwork src={track.coverPath} alt={track.title} size="sm" />
+            <div>
+              <strong>{track.title}</strong>
+              <span>{track.artists.join(", ")}</span>
+            </div>
+          </div>
+          <span className="track-album-name">{track.album ?? "Single"}</span>
+          <span className="track-duration">{formatDuration(track.duration)}</span>
+          {onAddToPlaylist && (
+            <div className="track-actions-cell">
+              <button 
+                className="circle-button small tertiary" 
+                onClick={(e) => { e.stopPropagation(); setMenuTrackId(menuTrackId === track.id ? null : track.id); }}
+                title="More actions"
+              >
+                <MoreVertical size={16} />
+              </button>
+            </div>
+          )}
+        </button>
+        {menuTrackId === track.id && (
+          <div className="track-context-menu" onClick={(e) => e.stopPropagation()}>
+            <button onClick={() => { onAddToPlaylist?.(track); setMenuTrackId(null); }}>
+              <Plus size={14} /> Add to Playlist
+            </button>
+            <button onClick={() => { navigate(`/library?tab=albums&album=${encodeURIComponent(track.album || "Single")}`); setMenuTrackId(null); }}>
+              <Disc size={14} /> Go to Album
+            </button>
+            <button onClick={() => { navigate(`/library?tab=artists&artist=${encodeURIComponent(track.artists[0]!)}`); setMenuTrackId(null); }}>
+              <Mic2 size={14} /> Go to Artist
+            </button>
+          </div>
+        )}
+      </div>
     ))}
+    {tracks.length > 500 && <div className="table-footer-info">Showing first 500 of {tracks.length} songs. Search or filter to find specific tracks.</div>}
   </div>
-);
+  );
+};
 
 const HomePage = ({
   library,
   albums,
   artists,
+  playlists,
   collections,
   currentTrackId,
   onPlay
@@ -523,6 +555,7 @@ const HomePage = ({
   library: LibraryPayload | undefined;
   albums: AlbumSummary[];
   artists: ArtistSummary[];
+  playlists: Array<{ id: string; name: string; trackCount: number }>;
   collections: CollectionSummary[];
   currentTrackId: string | null;
   onPlay: (track: Track, tracks: Track[]) => void;
@@ -664,17 +697,6 @@ const SearchPage = ({ onPlay }: { onPlay: (track: Track, tracks: Track[]) => voi
         </div>
       </section>
 
-      {!settingsQuery.data?.youtubeKey && !deferredQuery && (
-        <section className="spotify-section">
-          <div className="setup-prompt">
-            <Icon.Settings size={48} />
-            <h3>Search setup required</h3>
-            <p>To search and download music from YouTube, you need to add an API Key in Settings.</p>
-            <button className="primary-hero-button" onClick={() => navigate("/settings")}>Configure API Key</button>
-          </div>
-        </section>
-      )}
-
       <section className="spotify-section">
         <div className="section-header">
           <h2>Search results</h2>
@@ -792,7 +814,7 @@ const SearchPage = ({ onPlay }: { onPlay: (track: Track, tracks: Track[]) => voi
                           });
                         }}
                       >
-                        Song
+                        Download
                       </button>
                     </div>
                   </div>
@@ -910,23 +932,26 @@ const LibraryPage = ({
   library,
   albums,
   artists,
+  playlists,
   currentTrackId,
   onPlay
 }: {
   library: LibraryPayload | undefined;
   albums: AlbumSummary[];
   artists: ArtistSummary[];
+  playlists: Array<{ id: string; name: string; trackCount: number }>;
   currentTrackId: string | null;
   onPlay: (track: Track, tracks: Track[]) => void;
 }) => {
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedTab = searchParams.get("tab");
-  const [tab, setTab] = useState<"songs" | "albums" | "artists">(
-    requestedTab === "albums" || requestedTab === "artists" ? requestedTab : "songs"
+  const [tab, setTab] = useState<"songs" | "albums" | "artists" | "playlists">(
+    requestedTab === "albums" || requestedTab === "artists" || requestedTab === "playlists" ? requestedTab as any : "songs"
   );
   const [selectedAlbumId, setSelectedAlbumId] = useState<string | null>(searchParams.get("album"));
   const [selectedArtistId, setSelectedArtistId] = useState<string | null>(searchParams.get("artist"));
+  const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(searchParams.get("playlist"));
   const [storageBytes, setStorageBytes] = useState<number>(0);
 
   useEffect(() => {
@@ -935,21 +960,24 @@ const LibraryPage = ({
 
   useEffect(() => {
     const nextTab = searchParams.get("tab");
-    if (nextTab === "albums" || nextTab === "artists" || nextTab === "songs") {
+    if (nextTab === "albums" || nextTab === "artists" || nextTab === "songs" || nextTab === "playlists") {
       setTab(nextTab);
     }
     setSelectedAlbumId(searchParams.get("album"));
     setSelectedArtistId(searchParams.get("artist"));
+    setSelectedPlaylistId(searchParams.get("playlist"));
   }, [searchParams]);
 
   const selectedAlbum = albums.find((album) => album.id === selectedAlbumId) ?? albums[0] ?? null;
   const selectedArtist = artists.find((artist) => artist.id === selectedArtistId) ?? artists[0] ?? null;
+  const selectedPlaylist = playlists.find((playlist) => playlist.id === selectedPlaylistId) ?? playlists[0] ?? null;
 
-  const updateLibraryRoute = (next: { tab: "songs" | "albums" | "artists"; album?: string | null; artist?: string | null }) => {
+  const updateLibraryRoute = (next: { tab: "songs" | "albums" | "artists" | "playlists"; album?: string | null; artist?: string | null; playlist?: string | null }) => {
     const params = new URLSearchParams();
     params.set("tab", next.tab);
     if (next.album) params.set("album", next.album);
     if (next.artist) params.set("artist", next.artist);
+    if (next.playlist) params.set("playlist", next.playlist);
     setSearchParams(params);
   };
 
@@ -960,6 +988,23 @@ const LibraryPage = ({
       updateLibraryRoute({ tab: "albums" });
     }
   });
+
+  const addTrackToPlaylistMutation = useMutation<void, Error, { playlistId: string; trackId: string }>({
+    mutationFn: ({ playlistId, trackId }) => window.resonance.addTrackToPlaylist(playlistId, trackId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["library"] });
+      queryClient.invalidateQueries({ queryKey: ["playlist-tracks", selectedPlaylistId] });
+    }
+  });
+
+  const handleAddToPlaylist = (track: Track) => {
+    if (selectedPlaylistId) {
+      addTrackToPlaylistMutation.mutate({ playlistId: selectedPlaylistId, trackId: track.id });
+    } else {
+      // Handle case where no playlist is selected, e.g., show a modal to choose/create one
+      alert("Please select a playlist first.");
+    }
+  };
 
   return (
     <div className="page-stack">
@@ -976,10 +1021,11 @@ const LibraryPage = ({
           <button className={tab === "songs" ? "filter-pill active" : "filter-pill"} onClick={() => updateLibraryRoute({ tab: "songs" })}>Songs</button>
           <button className={tab === "albums" ? "filter-pill active" : "filter-pill"} onClick={() => updateLibraryRoute({ tab: "albums", album: selectedAlbum?.id ?? albums[0]?.id ?? null })}>Albums</button>
           <button className={tab === "artists" ? "filter-pill active" : "filter-pill"} onClick={() => updateLibraryRoute({ tab: "artists", artist: selectedArtist?.id ?? artists[0]?.id ?? null })}>Artists</button>
+          <button className={tab === "playlists" ? "filter-pill active" : "filter-pill"} onClick={() => updateLibraryRoute({ tab: "playlists", playlist: selectedPlaylistId ?? playlists[0]?.id ?? null })}>Playlists</button>
         </div>
 
         {tab === "songs" && (
-          library?.tracks.length ? <TrackTable tracks={library.tracks} currentTrackId={currentTrackId} onPlay={onPlay} /> : <div className="empty-card">Your library is empty right now.</div>
+          library?.tracks.length ? <TrackTable tracks={library.tracks} currentTrackId={currentTrackId} onPlay={onPlay} onAddToPlaylist={handleAddToPlaylist} /> : <div className="empty-card">Your library is empty right now.</div>
         )}
 
         {tab === "albums" && (
@@ -1016,12 +1062,12 @@ const LibraryPage = ({
                           }
                         }}
                       >
-                        <Icon.Trash size={16} />
+                        <Trash2 size={16} />
                       </button>
                     </div>
                   </div>
                 </div>
-                <TrackTable tracks={selectedAlbum.tracks} currentTrackId={currentTrackId} onPlay={onPlay} />
+                <TrackTable tracks={selectedAlbum.tracks} currentTrackId={currentTrackId} onPlay={onPlay} onAddToPlaylist={handleAddToPlaylist} />
               </div>
             ) : null}
           </div>
@@ -1053,9 +1099,48 @@ const LibraryPage = ({
                     </div>
                   </div>
                 </div>
-                <TrackTable tracks={selectedArtist.tracks} currentTrackId={currentTrackId} onPlay={onPlay} />
+                <TrackTable tracks={selectedArtist.tracks} currentTrackId={currentTrackId} onPlay={onPlay} onAddToPlaylist={handleAddToPlaylist} />
               </div>
             ) : null}
+          </div>
+        )}
+
+        {tab === "playlists" && (
+          <div className="detail-layout">
+            <div className="detail-sidebar">
+              {playlists.map((playlist) => (
+                <button key={playlist.id} className={selectedPlaylist?.id === playlist.id ? "detail-item active" : "detail-item"} onClick={() => updateLibraryRoute({ tab: "playlists", playlist: playlist.id })}>
+                  <div className="artwork-placeholder sm"><History size={24} /></div>
+                  <div>
+                    <strong>{playlist.name}</strong>
+                    <span>Playlist • {playlist.trackCount} songs</span>
+                  </div>
+                </button>
+              ))}
+              {playlists.length === 0 && <div className="empty-card slim">No playlists found.</div>}
+            </div>
+            {selectedPlaylist ? (
+              <div className="detail-main">
+                <div className="detail-hero">
+                  <div className="artwork-placeholder lg"><History size={64} /></div>
+                  <div>
+                    <span className="eyebrow">Playlist</span>
+                    <h2>{selectedPlaylist.name}</h2>
+                    <p>{selectedPlaylist.trackCount} songs</p>
+                    <div className="hero-actions">
+                      <button className="secondary-hero-button" title="Delete Playlist" onClick={() => {
+                        if (window.confirm(`Delete the playlist "${selectedPlaylist.name}"?`)) {
+                          window.resonance.deletePlaylist(selectedPlaylist.id).then(() => queryClient.invalidateQueries({ queryKey: ["library"] }));
+                        }
+                      }}>
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <PlaylistTracksView playlistId={selectedPlaylist.id} currentTrackId={currentTrackId} onPlay={onPlay} />
+              </div>
+            ) : <div className="detail-main empty">Select a playlist to view its tracks.</div>}
           </div>
         )}
       </section>
@@ -1104,64 +1189,54 @@ const CapsulePage = () => {
   );
 };
 
-const SettingsPage = ({ library, albums, artists }: { library: LibraryPayload | undefined; albums: AlbumSummary[]; artists: ArtistSummary[] }) => {
-  const queryClient = useQueryClient();
-  const pairingQuery = useQuery({
-    queryKey: ["pairing"],
-    queryFn: () => window.resonance.getPairing()
-  });
-
-  const settingsQuery = useQuery({
-    queryKey: ["settings"],
-    queryFn: () => window.resonance.fetchSettings()
-  });
-
-  const updateKeyMutation = useMutation({
-    mutationFn: (key: string) => window.resonance.updateYoutubeKey(key),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["settings"] });
+const SettingsPage = () => {
+  const folderPathQuery = useQuery({
+    queryKey: ["library-folder-path"],
+    queryFn: async () => {
+      if (typeof window.resonance.getLibraryFolderPath !== "function") {
+        throw new Error("Desktop bridge is outdated. Please restart the app.");
+      }
+      return window.resonance.getLibraryFolderPath();
     }
   });
-
+  const openFolderMutation = useMutation({
+    mutationFn: async () => {
+      if (typeof window.resonance.openLibraryFolder !== "function") {
+        return { ok: false, error: "Desktop bridge is outdated. Please restart the app." };
+      }
+      return window.resonance.openLibraryFolder();
+    }
+  });
   return (
     <div className="page-stack">
-      <section className="spotify-section settings-grid">
-        <div>
-          <div className="section-header">
-            <h2>Search Configuration</h2>
-          </div>
-          <p>YouTube API Key is required for searching and downloading new tracks. If you don't have one, search will fall back to offline-only metadata.</p>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <input 
-              type="password" 
-              className="settings-input" 
-              placeholder="Enter YouTube API v3 Key" 
-              defaultValue={settingsQuery.data?.youtubeKey ?? ""}
-              onBlur={(e) => updateKeyMutation.mutate(e.target.value)}
-            />
-            {updateKeyMutation.isPending && <span className="input-status">Saving...</span>}
-          </div>
-          <div className="token-meta">
-            <a href="https://console.cloud.google.com/" target="_blank" rel="noreferrer" className="link-text">Get a key from Google Cloud Console</a>
-          </div>
+      <section className="spotify-section">
+        <div className="section-header">
+          <h2>Library Folder</h2>
         </div>
-      </section>
-
-      <section className="spotify-section settings-grid">
-        <div>
-          <div className="section-header">
-            <h2>Android pairing</h2>
-          </div>
-          <p>Use the token or QR code to connect a mobile companion app to the embedded Resonance server.</p>
-          <div className="token-block">{pairingQuery.data?.token ?? "Loading..."}</div>
-          <div className="token-meta">Port {pairingQuery.data?.port ?? "..."} - Device {pairingQuery.data?.deviceId ?? "..."}</div>
+        <p>Open the folder where all downloaded songs are stored.</p>
+        <div className="token-block" style={{ marginBottom: 16 }}>
+          {folderPathQuery.isPending && "Loading folder path..."}
+          {folderPathQuery.isError && "Could not load folder path. Please restart the app."}
+          {!folderPathQuery.isPending && !folderPathQuery.isError && folderPathQuery.data}
         </div>
-        {pairingQuery.data?.qrCode ? <img className="qr-code" src={pairingQuery.data.qrCode} alt="Pairing QR code" /> : <div className="qr-skeleton" />}
-      </section>
-      <section className="stats-strip">
-        <div className="stat-tile"><span>Tracks</span><strong>{library?.tracks.length ?? 0}</strong></div>
-        <div className="stat-tile"><span>Albums</span><strong>{albums.length}</strong></div>
-        <div className="stat-tile"><span>Artists</span><strong>{artists.length}</strong></div>
+        <button
+          className="secondary-hero-button"
+          type="button"
+          onClick={() => openFolderMutation.mutate()}
+          disabled={openFolderMutation.isPending || folderPathQuery.isPending}
+        >
+          {openFolderMutation.isPending ? "Opening..." : "Show Folder"}
+        </button>
+        {openFolderMutation.isSuccess && !openFolderMutation.data.ok && (
+          <p className="section-subtle" style={{ color: "#ff7676", marginTop: 8 }}>
+            Could not open folder: {openFolderMutation.data.error || "Unknown error"}
+          </p>
+        )}
+        {openFolderMutation.isError && (
+          <p className="section-subtle" style={{ color: "#ff7676", marginTop: 8 }}>
+            Could not open folder. Please try again.
+          </p>
+        )}
       </section>
     </div>
   );
@@ -1171,6 +1246,7 @@ const RoutedContent = ({
   library,
   albums,
   artists,
+  playlists,
   collections,
   currentTrackId,
   onPlay
@@ -1178,6 +1254,7 @@ const RoutedContent = ({
   library: LibraryPayload | undefined;
   albums: AlbumSummary[];
   artists: ArtistSummary[];
+  playlists: Array<{ id: string; name: string; trackCount: number }>;
   collections: CollectionSummary[];
   currentTrackId: string | null;
   onPlay: (track: Track, tracks: Track[]) => void;
@@ -1197,11 +1274,11 @@ const RoutedContent = ({
       <MainHeader title={header.title} subtitle={header.subtitle} />
       <div className="content-scroll">
         <Routes>
-          <Route path="/" element={<HomePage library={library} albums={albums} artists={artists} collections={collections} currentTrackId={currentTrackId} onPlay={onPlay} />} />
+          <Route path="/" element={<HomePage library={library} albums={albums} artists={artists} playlists={playlists} collections={collections} currentTrackId={currentTrackId} onPlay={onPlay} />} />
           <Route path="/search" element={<SearchPage onPlay={onPlay} />} />
-          <Route path="/library" element={<LibraryPage library={library} albums={albums} artists={artists} currentTrackId={currentTrackId} onPlay={onPlay} />} />
+          <Route path="/library" element={<LibraryPage library={library} albums={albums} artists={artists} playlists={playlists} currentTrackId={currentTrackId} onPlay={onPlay} />} />
           <Route path="/capsule" element={<CapsulePage />} />
-          <Route path="/settings" element={<SettingsPage library={library} albums={albums} artists={artists} />} />
+          <Route path="/settings" element={<SettingsPage />} />
         </Routes>
       </div>
     </div>
@@ -1261,16 +1338,39 @@ export const App = () => {
     }
   };
 
+  const createPlaylistMutation = useMutation<any, Error, string>({
+    mutationFn: (name: string) => window.resonance.createPlaylist(name),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["library"] });
+    }
+  });
+ 
+  const handleCreatePlaylist = () => {
+    const name = window.prompt("Playlist Name:", "New Playlist");
+    if (name) {
+      createPlaylistMutation.mutate(name);
+    }
+  };
+ 
   return (
     <div className="spotify-shell">
-      <Sidebar collections={collections} currentTrackId={currentTrackId} onPlay={playTrack} />
-      <RoutedContent
-        library={libraryQuery.data}
+      <Sidebar 
+        collections={collections} 
         albums={albums}
         artists={artists}
-        collections={collections}
-        currentTrackId={currentTrackId}
-        onPlay={playTrack}
+        playlists={libraryQuery.data?.playlists ?? []} 
+        currentTrackId={currentTrackId} 
+        onPlay={playTrack} 
+        onCreatePlaylist={handleCreatePlaylist} 
+      />
+      <RoutedContent 
+        library={libraryQuery.data} 
+        albums={albums} 
+        artists={artists} 
+        playlists={libraryQuery.data?.playlists ?? []}
+        collections={collections} 
+        currentTrackId={currentTrackId} 
+        onPlay={playTrack} 
       />
       <footer className="player-bar">
         <div className="player-left">
@@ -1280,18 +1380,18 @@ export const App = () => {
             <span>{currentTrack?.artists.join(", ") ?? "Choose something from your library"}</span>
           </div>
           <button className="player-heart" title="Save to Liked Songs">
-            <Icon.Heart size={16} />
+            <Heart size={16} />
           </button>
         </div>
         <div className="player-center">
           <div className="transport-row">
-            <button className="transport-icon" title="Shuffle"><Icon.Shuffle size={16} /></button>
-            <button className="transport-icon" onClick={() => playRelative(-1)} disabled={currentQueueIndex <= 0} title="Previous"><Icon.SkipBack size={16} /></button>
+            <button className="transport-icon" title="Shuffle"><Shuffle size={16} /></button>
+            <button className="transport-icon" onClick={() => playRelative(-1)} disabled={currentQueueIndex <= 0} title="Previous"><SkipBack size={16} fill="currentColor" /></button>
             <button className="transport-play" onClick={() => setPlaying(!isPlaying)} title={isPlaying ? "Pause" : "Play"}>
-              {isPlaying ? <Icon.Pause size={16} /> : <Icon.Play size={16} />}
+              {isPlaying ? <Pause size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" />}
             </button>
-            <button className="transport-icon" onClick={() => playRelative(1)} disabled={currentQueueIndex === -1 || currentQueueIndex >= queue.length - 1} title="Next"><Icon.SkipForward size={16} /></button>
-            <button className="transport-icon" title="Repeat"><Icon.Repeat size={16} /></button>
+            <button className="transport-icon" onClick={() => playRelative(1)} disabled={currentQueueIndex === -1 || currentQueueIndex >= queue.length - 1} title="Next"><SkipForward size={16} fill="currentColor" /></button>
+            <button className="transport-icon" title="Repeat"><Repeat size={16} /></button>
           </div>
           <div className="progress-row">
             <span className="progress-time">{formatDuration(Math.round(currentTime))}</span>
@@ -1314,8 +1414,8 @@ export const App = () => {
           </div>
         </div>
         <div className="player-right">
-          <button className="transport-icon" title="Queue"><Icon.Queue size={16} /></button>
-          <button className="transport-icon" title="Volume"><Icon.Volume size={16} /></button>
+          <button className="transport-icon" title="Queue"><ListMusic size={16} /></button>
+          <button className="transport-icon" title="Volume"><Volume2 size={16} /></button>
           <div className="volume-wrap">
             <input 
               className="volume-slider" 
@@ -1328,7 +1428,7 @@ export const App = () => {
               onChange={(event) => setVolume(Number(event.target.value))} 
             />
           </div>
-          <button className="transport-icon" title="Full screen"><Icon.Expand size={16} /></button>
+          <button className="transport-icon" title="Full screen"><Maximize size={16} /></button>
         </div>
       </footer>
       <audio
