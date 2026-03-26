@@ -8,7 +8,7 @@
 
 - **High-Fidelity UI**: A pixel-perfect, dark-mode interface inspired by the world's leading music streaming service.
 - **Smart Library Management**: Automatically organizes your music into Albums and Artists with intelligent cross-album deduplication.
-- **Advanced Search**: Integrated metadata search via iTunes API with YouTube-backed media enrichment.
+- **Advanced Search**: Integrated metadata search via iTunes API with YouTube web search enrichment (no YouTube Data API key required).
 - **Concurrency-Limited Downloads**: Professional-grade background download manager with queueing and semaphore-based concurrency control.
 - **Sound Capsule**: Built-in listening analytics featuring playback heatmaps, weekly stats, and listening streaks.
 - **Disk Usage Tracking**: Integrated storage counter to monitor your library's footprint.
@@ -31,22 +31,14 @@
 
 ### Configuration
 
-1. **YouTube API Key**: 
-   To enable search, you need a Google Cloud API Key:
-   - Go to [Google Cloud Console](https://console.cloud.google.com/).
-   - Create a new project.
-   - Enable the **YouTube Data API v3**.
-   - Go to **Credentials** and create an **API Key**.
-   - Paste this key into your `.env` file.
-
-2. **Environment Setup**
+1. **Environment Setup**
    Create a `.env` file in the root directory:
    ```bash
-   YOUTUBE_API_KEY=your_key_here
    APP_PORT=3939
    ```
+   `APP_PORT` is optional. If omitted, the app uses the default configured port.
 
-3. **Run in Development**
+2. **Run in Development**
    ```bash
    npm run dev
    ```
