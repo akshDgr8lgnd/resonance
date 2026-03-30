@@ -13,6 +13,31 @@ export type DownloadDependencies = {
   deviceId: string;
 };
 
+const normalizeComparableTitle = (value: string) =>
+  value
+    .toLowerCase()
+    .replace(/\[[^\]]*\]|\([^)]*\)/g, " ")
+    .replace(/official|video|audio|lyrics?|full song|hd|4k|visualizer/gi, " ")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter((token) => token.length > 1);
+
+const resolvedTitleMatchesRequest = (resolvedTitle: string, requestedTitle: string) => {
+  const requestedTokens = normalizeComparableTitle(requestedTitle);
+  if (!requestedTokens.length) return true;
+  const resolvedTokens = new Set(normalizeComparableTitle(resolvedTitle));
+  const overlap = requestedTokens.filter((token) => resolvedTokens.has(token)).length;
+  return overlap >= Math.max(2, Math.ceil(requestedTokens.length * 0.7));
+};
+
+const cleanResolvedTitle = (value: string) =>
+  value
+    .replace(/\s*\[[^\]]*\]\s*/g, " ")
+    .replace(/\s*\((official|audio|video|lyrics?|full song|hd|4k|visualizer)[^)]*\)\s*/gi, " ")
+    .replace(/\s*[-|:]\s*(official|audio|video|lyrics?|full song|hd|4k|visualizer).*$/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+
 export class DownloadService {
   private downloadQueue: { result: SearchResult; resolve: (t: Track) => void; reject: (e: Error) => void }[] = [];
   private activeDownloads = 0;
@@ -75,12 +100,10 @@ export class DownloadService {
 
     const payload = JSON.parse(stdout);
     const resolvedVideoId = typeof payload.id === "string" && !payload.id.includes(" ") ? payload.id : null;
-    const resolvedTitle =
-      source.startsWith("ytsearch1:") && result.title
-        ? result.title
-        : typeof payload.title === "string"
-          ? payload.title
-          : result.title;
+    const payloadTitle = typeof payload.title === "string" ? payload.title : result.title;
+    const resolvedTitle = source.startsWith("ytsearch1:") && !resolvedTitleMatchesRequest(payloadTitle, result.title)
+      ? payloadTitle
+      : result.title || payloadTitle;
     const resolvedArtists = result.artists?.length
       ? result.artists
       : [payload.artist, payload.uploader].filter((value, index, items) => typeof value === "string" && value.trim() && items.indexOf(value) === index);
@@ -94,6 +117,76 @@ export class DownloadService {
       thumbnail: typeof payload.thumbnail === "string" ? payload.thumbnail : result.thumbnail,
       webpageUrl: typeof payload.webpage_url === "string" ? payload.webpage_url : result.sourceUrl
     };
+  }
+
+  private async fetchTrackMetadata(track: Track) {
+    const source = track.sourceUrl?.startsWith("http")
+      ? track.sourceUrl
+      : track.youtubeVideoId
+        ? `https://www.youtube.com/watch?v=${track.youtubeVideoId}`
+        : track.sourceUrl;
+
+    if (!source) {
+      throw new Error("Track has no source information to refresh from.");
+    }
+
+    const { stdout } = await this.runYtDlp([
+      "--dump-single-json",
+      "--no-playlist",
+      "--no-warnings",
+      "--skip-download",
+      source
+    ]);
+
+    const payload = JSON.parse(stdout);
+    const title = cleanResolvedTitle(typeof payload.title === "string" ? payload.title : track.title) || track.title;
+    const artists = [payload.artist, payload.uploader]
+      .filter((value, index, items) => typeof value === "string" && value.trim() && items.indexOf(value) === index) as string[];
+
+    return {
+      title,
+      artists: artists.length ? artists : track.artists,
+      duration: typeof payload.duration === "number" ? payload.duration : track.duration,
+      sourceUrl: typeof payload.webpage_url === "string" ? payload.webpage_url : track.sourceUrl,
+      youtubeVideoId: typeof payload.id === "string" ? payload.id : track.youtubeVideoId
+    };
+  }
+
+  async repairTrackMetadata(trackId: string) {
+    const track = this.deps.library.getTrackById(trackId);
+    if (!track) {
+      throw new Error("Track not found.");
+    }
+
+    const metadata = await this.fetchTrackMetadata(track);
+    return this.deps.library.updateTrackMetadata(trackId, metadata);
+  }
+
+  async repairLibraryMetadata() {
+    const tracks = this.deps.library.getTracks().filter((track) => track.youtubeVideoId || track.sourceUrl);
+    let updated = 0;
+    let failed = 0;
+
+    for (const track of tracks) {
+      try {
+        const next = await this.fetchTrackMetadata(track);
+        const changed =
+          next.title !== track.title ||
+          next.duration !== track.duration ||
+          next.sourceUrl !== track.sourceUrl ||
+          next.youtubeVideoId !== track.youtubeVideoId ||
+          next.artists.join("|") !== track.artists.join("|");
+
+        if (changed) {
+          this.deps.library.updateTrackMetadata(track.id, next);
+          updated += 1;
+        }
+      } catch {
+        failed += 1;
+      }
+    }
+
+    return { scanned: tracks.length, updated, failed };
   }
 
   private async saveCover(id: string, thumbnailUrl: string | null) {
@@ -148,16 +241,13 @@ export class DownloadService {
     this.ensureMediaRoot();
 
     const resolved = await this.resolveSource(result);
-    
-    // Check if we already have this specific song+album combination
     const existingExact = this.deps.library.getTrackByVideoIdAndAlbum(resolved.videoId, result.album ?? null);
     if (existingExact) {
       return existingExact;
     }
 
-    // Check if we have the audio for this song in ANOTHER album
-    const existingAudio = this.deps.library.getAllTracksByVideoId(resolved.videoId).find(t => fs.existsSync(t.filePath));
-    
+    const existingAudio = this.deps.library.getAllTracksByVideoId(resolved.videoId).find((t) => fs.existsSync(t.filePath));
+
     let savedFile = existingAudio?.filePath ? path.basename(existingAudio.filePath) : null;
     const id = crypto.randomUUID();
 
@@ -177,7 +267,7 @@ export class DownloadService {
       savedFile = fs.readdirSync(this.deps.mediaRoot).find(
         (file) => file.startsWith(id) && (file.endsWith(".opus") || file.endsWith(".mp3") || file.endsWith(".webm") || file.endsWith(".m4a"))
       ) || null;
-      
+
       if (!savedFile) {
         throw new Error("Download completed but no audio file was found.");
       }

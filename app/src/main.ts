@@ -13,7 +13,9 @@ import {
   QueueService,
   SearchService,
   SettingsService,
-  SyncService
+  SyncService,
+  RecommendationService,
+  CurationService
 } from "../../core/dist/index.js";
 import { createServer } from "../../server/dist/index.js";
 
@@ -114,15 +116,37 @@ const buildServices = async () => {
   const queue = new QueueService();
   const jobs = new DownloadJobService(library, downloads);
   const sync = new SyncService(library, jobs);
+  const recommendations = new RecommendationService(db, library);
+  const curation = new CurationService(db, library, recommendations);
   const server = await createServer({ library, search, downloads, capsule, settings, jobs, sync });
 
   await downloads.updateYtDlpIfNeeded().catch(() => undefined);
+  curation.refreshDailyBundles();
   await server.start();
   logLine(`Embedded server started on port ${server.settings.serverPort}`);
 
-  return { library, capsule, downloads, search, queue, server, sync, jobs, settings: resolvedSettings, settingsService: settings, mediaRoot };
+  return { library, capsule, downloads, search, queue, server, sync, recommendations, curation, jobs, settings: resolvedSettings, settingsService: settings, mediaRoot };
 };
 
+let nightlyRefreshTimer: NodeJS.Timeout | null = null;
+
+const scheduleNightlyCurationRefresh = (services: Awaited<ReturnType<typeof buildServices>>) => {
+  if (nightlyRefreshTimer) {
+    clearTimeout(nightlyRefreshTimer);
+  }
+
+  const next = new Date();
+  next.setDate(next.getDate() + 1);
+  next.setHours(0, 10, 0, 0);
+  const delay = Math.max(next.getTime() - Date.now(), 60_000);
+
+  nightlyRefreshTimer = setTimeout(() => {
+    Promise.resolve(services.curation.refreshDailyBundles(true))
+      .then(() => logLine("Nightly curation refresh complete"))
+      .catch((error) => logLine(`Nightly curation refresh failed: ${serializeError(error)}`))
+      .finally(() => scheduleNightlyCurationRefresh(services));
+  }, delay);
+};
 const showMainWindow = async () => {
   if (!mainWindow) {
     await createMainWindow();
@@ -184,6 +208,14 @@ const registerIpcHandlers = (services: Awaited<ReturnType<typeof buildServices>>
   ipcMain.removeHandler("playlist:delete");
   ipcMain.removeHandler("playlist:set-tracks");
   ipcMain.removeHandler("playlist:add-track");
+  ipcMain.removeHandler("recommendations:get");
+  ipcMain.removeHandler("recommendations:feedback");
+  ipcMain.removeHandler("recommendations:auto-next");
+  ipcMain.removeHandler("library:repair-metadata");
+  ipcMain.removeHandler("curation:daily");
+  ipcMain.removeHandler("curation:radio");
+  ipcMain.removeHandler("curation:auto-queue");
+  ipcMain.removeHandler("curation:refresh");
 
   ipcMain.handle("library:all", () => ({
     tracks: services.library.getTracks(),
@@ -200,6 +232,26 @@ const registerIpcHandlers = (services: Awaited<ReturnType<typeof buildServices>>
   });
 
   ipcMain.handle("library:storage-usage", () => services.downloads.getStorageUsage());
+  ipcMain.handle("library:repair-metadata", async () => services.downloads.repairLibraryMetadata());
+
+  ipcMain.handle("curation:daily", (_event, payload?: { profile?: "balanced" | "bollywood" | "discovery" | "comfort" }) => {
+    return services.curation.getDailyBundle(payload?.profile ?? "balanced");
+  });
+
+  ipcMain.handle("curation:radio", (_event, payload: { trackId: string; profile?: "balanced" | "bollywood" | "discovery" | "comfort"; limit?: number }) => {
+    if (!payload?.trackId) return [];
+    const limit = Math.max(1, Math.min(50, Number(payload?.limit ?? 25)));
+    return services.curation.getTrackRadio(payload.trackId, payload.profile ?? "balanced", limit);
+  });
+
+  ipcMain.handle("curation:auto-queue", (_event, payload?: { currentTrackId?: string; profile?: "balanced" | "bollywood" | "discovery" | "comfort"; limit?: number }) => {
+    const limit = Math.max(1, Math.min(50, Number(payload?.limit ?? 15)));
+    return services.curation.getAutoQueue(payload?.currentTrackId, payload?.profile ?? "balanced", limit);
+  });
+
+  ipcMain.handle("curation:refresh", () => {
+    return services.curation.refreshDailyBundles(true);
+  });
 
   ipcMain.handle("capsule:history", () => services.capsule.getHistory());
   ipcMain.handle("search:query", (_event, query: string) => services.search.search(query));
@@ -269,10 +321,65 @@ const registerIpcHandlers = (services: Awaited<ReturnType<typeof buildServices>>
   ipcMain.handle("playlist:set-tracks", (_event, payload: { playlistId: string; trackIds: string[] }) => services.library.setPlaylistTracks(payload.playlistId, payload.trackIds));
   ipcMain.handle("playlist:get-tracks", (_event, id: string) => services.library.getPlaylistTracks(id));
   ipcMain.handle("playlist:add-track", (_event, payload: { playlistId: string; trackId: string }) => services.library.addTrackToPlaylist(payload.playlistId, payload.trackId));
+
+  ipcMain.handle("recommendations:get", (_event, payload?: { limit?: number; seedTrackId?: string; profile?: "balanced" | "bollywood" | "discovery" | "comfort" }) => {
+    const limit = Math.max(1, Math.min(50, Number(payload?.limit ?? 20)));
+    return services.recommendations.getRecommendations(limit, payload?.seedTrackId, payload?.profile ?? "balanced");
+  });
+
+  ipcMain.handle("recommendations:feedback", (_event, payload: { trackId: string; feedback: "like" | "skip" | "neutral" }) => {
+    if (!payload?.trackId) return { ok: false };
+    services.recommendations.setFeedback(payload.trackId, payload.feedback);
+    return { ok: true };
+  });
+  ipcMain.handle("recommendations:auto-next", async (_event, payload?: { currentTrackId?: string; profile?: "balanced" | "bollywood" | "discovery" | "comfort" }) => {
+    const currentTrackId = payload?.currentTrackId;
+    const autoQueue = services.curation.getAutoQueue(currentTrackId, payload?.profile ?? "balanced", 12);
+    const nextFromQueue = autoQueue.find((track) => track.id !== currentTrackId);
+    if (nextFromQueue) {
+      return { ok: true, track: nextFromQueue, mode: "library" as const };
+    }
+
+    const local = services.recommendations.getRecommendations(30, currentTrackId, payload?.profile ?? "balanced");
+    const nextLocal = local.find((entry) => entry.track.id !== currentTrackId)?.track;
+    if (nextLocal) {
+      return { ok: true, track: nextLocal, mode: "library" as const };
+    }
+
+    const seed = currentTrackId ? services.library.getTrackById(currentTrackId) : undefined;
+    const query = seed
+      ? `${seed.title} ${seed.artists[0] ?? ""}`.trim()
+      : "Top Bollywood songs";
+
+    const searchResults = await services.search.search(query);
+    const candidate = searchResults.find((result) => {
+      if (!result.videoId) return true;
+      const existing = services.library.getTrackByVideoId(result.videoId);
+      return !existing;
+    }) ?? searchResults[0];
+
+    if (!candidate) {
+      return { ok: false, reason: "no_candidate" as const };
+    }
+
+    try {
+      const downloaded = await services.downloads.downloadTrack(candidate);
+      return { ok: true, track: downloaded, mode: "downloaded" as const };
+    } catch (error) {
+      const fallbackExisting = candidate.videoId ? services.library.getTrackByVideoId(candidate.videoId) : undefined;
+      if (fallbackExisting) {
+        return { ok: true, track: fallbackExisting, mode: "library" as const };
+      }
+      const message = error instanceof Error ? error.message : String(error);
+      logLine("Auto-next download failed: " + message);
+      return { ok: false, reason: "download_failed" as const, error: message };
+    }
+  });
 };
 
 const createMainWindow = async () => {
   const services = await buildServices();
+  scheduleNightlyCurationRefresh(services);
 
   mainWindow = new BrowserWindow({
     width: 1520,
@@ -355,6 +462,10 @@ process.stderr.on("error", (error: NodeJS.ErrnoException) => {
 
 app.on("before-quit", () => {
   isQuitting = true;
+  if (nightlyRefreshTimer) {
+    clearTimeout(nightlyRefreshTimer);
+    nightlyRefreshTimer = null;
+  }
 });
 
 app.on("window-all-closed", () => {
@@ -366,3 +477,10 @@ app.on("window-all-closed", () => {
 app.on("activate", () => {
   void showMainWindow();
 });
+
+
+
+
+
+
+

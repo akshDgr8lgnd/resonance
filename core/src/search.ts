@@ -9,17 +9,12 @@ export class SearchService {
     }
 
     try {
-      // Perform parallel searches
       const [itunesResults, ytResults] = await Promise.all([
         this.fetchItunesResults(normalized).catch(() => []),
         this.fetchYoutubeScraperResults(normalized).catch(() => [])
       ]);
 
       const combined: SearchResult[] = [...itunesResults];
-      
-      // Add scraper results if they aren't already represented by iTunes results
-      // We'll use a simple title-based heuristic for deduplication if needed, 
-      // but it's often better to show both if IDs differ.
       combined.push(...ytResults);
 
       return combined;
@@ -67,7 +62,8 @@ export class SearchService {
             .filter(Boolean)
         : ["Unknown Artist"];
       const trackTitle = item.trackName ?? query;
-      const searchPhrase = `${artist.join(", ")} - ${trackTitle} official audio`;
+      const albumName = item.collectionName ?? "";
+      const searchPhrase = `ytsearch1:\"${trackTitle}\" ${artist.join(", ")} ${albumName} official audio`;
       return {
         id: `itunes-${item.trackId ?? item.collectionId ?? Math.random().toString(36).slice(2)}`,
         title: trackTitle,
@@ -78,7 +74,7 @@ export class SearchService {
         discNumber: typeof item.discNumber === "number" ? item.discNumber : null,
         duration: Math.round((item.trackTimeMillis ?? 0) / 1000),
         thumbnail: item.artworkUrl100?.replace("100x100bb", "512x512bb") ?? item.artworkUrl100 ?? null,
-        sourceUrl: `ytsearch1:${searchPhrase}`,
+        sourceUrl: searchPhrase,
         videoId: `ytsearch:${item.trackId ?? trackTitle}`,
         kind: "track" as const
       };

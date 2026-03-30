@@ -109,3 +109,30 @@ export type PlaybackResolution =
       videoId?: string | null;
       sourceUrl?: string | null;
     };
+
+export type TrackFeedback = "like" | "skip" | "neutral";
+
+export type RecommendedTrack = {
+  track: Track;
+  score: number;
+  reasons: string[];
+};
+
+export type RecommenderProfile = "balanced" | "bollywood" | "discovery" | "comfort";
+
+export type CuratedShelf = {
+  id: string;
+  title: string;
+  subtitle: string;
+  type: "mix" | "playlist" | "time";
+  tracks: Track[];
+};
+
+export type DailyCurationBundle = {
+  profile: RecommenderProfile;
+  dayKey: string;
+  generatedAt: string;
+  mixes: CuratedShelf[];
+  autoPlaylists: CuratedShelf[];
+  timeShelves: CuratedShelf[];
+};

@@ -17,7 +17,7 @@ const mapTrack = (row: any): Track => {
     }
     artists = newArtists;
   }
-  
+
   return {
     id: row.id,
     title: row.title,
@@ -119,6 +119,20 @@ export class LibraryService {
     );
   }
 
+  updateTrackMetadata(trackId: string, patch: Partial<Pick<Track, "title" | "artists" | "album" | "albumArtist" | "trackNumber" | "discNumber" | "duration" | "sourceUrl" | "youtubeVideoId">>) {
+    const current = this.getTrackById(trackId);
+    if (!current) return undefined;
+
+    const next: Track = {
+      ...current,
+      ...patch,
+      artists: patch.artists ?? current.artists
+    };
+
+    this.saveTrack(next);
+    return next;
+  }
+
   upsertDevice(device: DeviceRecord) {
     this.db.run(
       `INSERT OR REPLACE INTO devices (id, name, platform, capabilities, last_seen_at)
@@ -215,7 +229,7 @@ export class LibraryService {
       });
     });
   }
-  
+
   getPlaylistTracks(playlistId: string): Track[] {
     return this.db.queryAll(
       `SELECT tracks.* FROM tracks
@@ -235,8 +249,8 @@ export class LibraryService {
   syncFileSystem(mediaRoot: string) {
     if (!fs.existsSync(mediaRoot)) return;
     const files = fs.readdirSync(mediaRoot);
-    const audioFiles = files.filter(f => f.endsWith(".mp3") || f.endsWith(".opus") || f.endsWith(".m4a") || f.endsWith(".webm"));
-    
+    const audioFiles = files.filter((f) => f.endsWith(".mp3") || f.endsWith(".opus") || f.endsWith(".m4a") || f.endsWith(".webm"));
+
     for (const filename of audioFiles) {
       const id = path.parse(filename).name;
       const exists = this.db.queryOne("SELECT id FROM tracks WHERE id = ? OR file_path LIKE ?", [id, `%${filename}`]);
@@ -246,11 +260,11 @@ export class LibraryService {
         try {
           const coversDir = path.join(mediaRoot, "covers");
           if (fs.existsSync(coversDir)) {
-             const coverFiles = fs.readdirSync(coversDir).filter(f => f.startsWith(id));
-             coverPath = coverFiles.length > 0 ? path.join(coversDir, coverFiles[0]!) : null;
+            const coverFiles = fs.readdirSync(coversDir).filter((f) => f.startsWith(id));
+            coverPath = coverFiles.length > 0 ? path.join(coversDir, coverFiles[0]!) : null;
           }
         } catch (e) {}
-        
+
         this.saveTrack({
           id,
           title: `Recovered: ${id}`,
@@ -279,7 +293,7 @@ export class LibraryService {
       tracksInAlbum = this.db.queryAll("SELECT * FROM tracks WHERE album = ?", [albumName]).map(mapTrack);
       this.db.run("DELETE FROM tracks WHERE album = ?", [albumName]);
     }
-    
+
     for (const track of tracksInAlbum) {
       this.db.run("DELETE FROM track_copies WHERE track_id = ?", [track.id]);
       this.db.run("DELETE FROM playlist_tracks WHERE track_id = ?", [track.id]);

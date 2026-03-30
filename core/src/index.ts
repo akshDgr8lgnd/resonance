@@ -1,4 +1,5 @@
 export * from "./capsule.js";
+export * from "./curation.js";
 export * from "./db.js";
 export * from "./download.js";
 export * from "./jobs.js";
@@ -9,3 +10,4 @@ export * from "./search.js";
 export * from "./settings.js";
 export * from "./sync.js";
 export * from "./types.js";
+export * from "./recommendations.js";

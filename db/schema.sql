@@ -41,7 +41,12 @@ CREATE TABLE IF NOT EXISTS plays (
   duration_played INTEGER NOT NULL,
   FOREIGN KEY (track_id) REFERENCES tracks(id) ON DELETE CASCADE
 );
-
+CREATE TABLE IF NOT EXISTS track_feedback (
+  track_id TEXT PRIMARY KEY,
+  feedback TEXT NOT NULL CHECK (feedback IN ('like', 'skip', 'neutral')),
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (track_id) REFERENCES tracks(id) ON DELETE CASCADE
+);
 CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL
@@ -86,6 +91,7 @@ CREATE TABLE IF NOT EXISTS download_jobs (
 
 CREATE INDEX IF NOT EXISTS idx_plays_track_id ON plays(track_id);
 CREATE INDEX IF NOT EXISTS idx_plays_played_at ON plays(played_at);
+CREATE INDEX IF NOT EXISTS idx_track_feedback_feedback ON track_feedback(feedback);
 CREATE INDEX IF NOT EXISTS idx_playlist_tracks_position ON playlist_tracks(playlist_id, position);
 CREATE INDEX IF NOT EXISTS idx_track_copies_device_id ON track_copies(device_id);
 CREATE INDEX IF NOT EXISTS idx_download_jobs_status ON download_jobs(status);
