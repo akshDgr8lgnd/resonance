@@ -3,7 +3,7 @@ import pkg from "electron-updater";
 const { autoUpdater } = pkg;
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import {
   createDatabase,
   CapsuleService,
@@ -20,13 +20,14 @@ import {
 import { createServer } from "../../server/dist/index.js";
 
 let mainWindow: BrowserWindow | null = null;
+let miniPlayerWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let isQuitting = false;
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 const appRoot = path.resolve(moduleDir, "..");
 const workspaceRoot = path.resolve(appRoot, "..");
-const iconPath = path.join(appRoot, "assets", "icon.png");
-const trayPath = path.join(appRoot, "assets", "tray.png");
+const iconPath = path.join(appRoot, "assets", process.platform === "win32" ? "icon.ico" : "icon.svg");
+const trayPath = path.join(appRoot, "assets", "tray.svg");
 const logPath = path.join(app.getPath("userData"), "resonance.log");
 
 const logLine = (message: string) => {
@@ -79,16 +80,304 @@ const createFallbackIcon = () =>
       )
   );
 
+const createAssetIcon = (assetPath: string) => {
+  try {
+    if (!fs.existsSync(assetPath)) return createFallbackIcon();
+    if (assetPath.endsWith(".svg")) {
+      const svg = fs.readFileSync(assetPath, "utf8");
+      return nativeImage.createFromDataURL(`data:image/svg+xml;utf8,${encodeURIComponent(svg)}`);
+    }
+    return nativeImage.createFromPath(assetPath);
+  } catch {
+    return createFallbackIcon();
+  }
+};
+
 const getAppIcon = () => {
-  const image = nativeImage.createFromPath(iconPath);
+  const image = createAssetIcon(iconPath);
   return image.isEmpty() ? createFallbackIcon() : image;
 };
 
 const getTrayIcon = () => {
-  const image = nativeImage.createFromPath(trayPath);
-  return image.isEmpty() ? createFallbackIcon().resize({ width: 20, height: 20 }) : image;
+  const image = createAssetIcon(trayPath);
+  return image.isEmpty() ? createFallbackIcon().resize({ width: 20, height: 20 }) : image.resize({ width: 20, height: 20 });
+};
+const getArtworkCacheRoot = () => path.join(app.getPath("userData"), "artwork-cache");
+
+const sanitizeArtworkKey = (value: string) => {
+  const normalized = value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  return normalized || "item";
 };
 
+type ItunesArtworkResult = {
+  artistName?: string;
+  collectionName?: string;
+  artworkUrl100?: string;
+  artworkUrl60?: string;
+};
+
+type LyricsPayload = {
+  title: string;
+  artist: string;
+  album?: string | null;
+  duration?: number | null;
+};
+
+type LyricsResponse = {
+  syncedLyrics?: string | null;
+  plainLyrics?: string | null;
+  instrumental?: boolean;
+};
+
+type PlaybackState = {
+  track: {
+    id: string;
+    title: string;
+    artists: string[];
+    album: string | null;
+    coverPath: string | null;
+    duration: number;
+  } | null;
+  isPlaying: boolean;
+  currentTime: number;
+  duration: number;
+  volume: number;
+};
+
+type PlaybackOpenPayload = {
+  trackId: string;
+  queueTrackIds?: string[];
+};
+
+let playbackState: PlaybackState = {
+  track: null,
+  isPlaying: false,
+  currentTime: 0,
+  duration: 0,
+  volume: 0.85
+};
+
+
+const lookupArtworkUrl = async (kind: "album" | "artist", name: string, artist?: string | null) => {
+  const term = kind === "album" ? `${name} ${artist ?? ""}`.trim() : name.trim();
+  if (!term) return null;
+
+  const url = new URL("https://itunes.apple.com/search");
+  url.searchParams.set("term", term);
+  url.searchParams.set("media", "music");
+  url.searchParams.set("entity", kind === "album" ? "song" : "musicTrack");
+  url.searchParams.set("limit", "12");
+
+  const response = await fetch(url);
+  if (!response.ok) return null;
+
+  const payload = (await response.json()) as { results?: ItunesArtworkResult[] };
+  const results = payload.results ?? [];
+  if (!results.length) return null;
+
+  const loweredName = name.toLowerCase();
+  const loweredArtist = artist?.toLowerCase() ?? null;
+  const scored = results
+    .map((result) => {
+      let score = 0;
+      const resultArtist = result.artistName?.toLowerCase() ?? "";
+      const resultAlbum = result.collectionName?.toLowerCase() ?? "";
+      if (kind === "album") {
+        if (resultAlbum === loweredName) score += 5;
+        else if (resultAlbum.includes(loweredName)) score += 3;
+        if (loweredArtist && resultArtist.includes(loweredArtist)) score += 4;
+      } else if (resultArtist === loweredName) {
+        score += 5;
+      } else if (resultArtist.includes(loweredName)) {
+        score += 3;
+      }
+      return { result, score };
+    })
+    .sort((a, b) => b.score - a.score);
+
+  const artworkUrl = scored[0]?.result.artworkUrl100 ?? scored[0]?.result.artworkUrl60 ?? null;
+  return artworkUrl ? artworkUrl.replace(/100x100bb|60x60bb/g, "512x512bb") : null;
+};
+
+const cacheArtwork = async (kind: "album" | "artist", name: string, artist?: string | null) => {
+  const key = `${kind}-${sanitizeArtworkKey(name)}-${sanitizeArtworkKey(artist ?? "")}`;
+  const cacheRoot = getArtworkCacheRoot();
+  fs.mkdirSync(cacheRoot, { recursive: true });
+
+  const existing = fs.readdirSync(cacheRoot).find((file) => file.startsWith(`${key}.`));
+  if (existing) {
+    return path.join(cacheRoot, existing);
+  }
+
+  const artworkUrl = await lookupArtworkUrl(kind, name, artist);
+  if (!artworkUrl) return null;
+
+  try {
+    const response = await fetch(artworkUrl);
+    if (!response.ok) return null;
+    const extension = artworkUrl.match(/\.([a-zA-Z0-9]+)(?:\?|$)/)?.[1]?.toLowerCase() ?? "jpg";
+    const filePath = path.join(cacheRoot, `${key}.${extension}`);
+    const buffer = Buffer.from(await response.arrayBuffer());
+    fs.writeFileSync(filePath, buffer);
+    return filePath;
+  } catch {
+    return null;
+  }
+};
+
+const getLyricsCacheRoot = () => path.join(app.getPath("userData"), "lyrics-cache");
+
+const fetchLyricsFromLrcLib = async (payload: LyricsPayload): Promise<LyricsResponse | null> => {
+  const title = payload.title.trim();
+  const artist = payload.artist.trim();
+  if (!title || !artist) return null;
+
+  const baseUrl = "https://lrclib.net/api";
+  const queryUrl = new URL(`${baseUrl}/get`);
+  queryUrl.searchParams.set("track_name", title);
+  queryUrl.searchParams.set("artist_name", artist);
+  if (payload.album) queryUrl.searchParams.set("album_name", payload.album);
+  if (payload.duration) queryUrl.searchParams.set("duration", String(Math.round(payload.duration)));
+
+  try {
+    const directResponse = await fetch(queryUrl);
+    if (directResponse.ok) {
+      const directPayload = await directResponse.json() as LyricsResponse;
+      if (directPayload.syncedLyrics || directPayload.plainLyrics || directPayload.instrumental) {
+        return directPayload;
+      }
+    }
+  } catch {
+    // Fall through to search.
+  }
+
+  try {
+    const searchUrl = new URL(`${baseUrl}/search`);
+    searchUrl.searchParams.set("track_name", title);
+    searchUrl.searchParams.set("artist_name", artist);
+    const searchResponse = await fetch(searchUrl);
+    if (!searchResponse.ok) return null;
+    const matches = await searchResponse.json() as LyricsResponse[];
+    return matches.find((item) => item.syncedLyrics || item.plainLyrics) ?? matches[0] ?? null;
+  } catch {
+    return null;
+  }
+};
+
+const fetchPlainLyricsFallback = async (payload: LyricsPayload): Promise<string | null> => {
+  const title = payload.title.trim();
+  const artist = payload.artist.trim();
+  if (!title || !artist) return null;
+
+  try {
+    const response = await fetch(`https://api.lyrics.ovh/v1/${encodeURIComponent(artist)}/${encodeURIComponent(title)}`);
+    if (!response.ok) return null;
+    const data = await response.json() as { lyrics?: string };
+    const lyrics = data.lyrics?.trim();
+    return lyrics ? lyrics : null;
+  } catch {
+    return null;
+  }
+};
+
+const cacheLyrics = async (payload: LyricsPayload) => {
+  const cacheRoot = getLyricsCacheRoot();
+  fs.mkdirSync(cacheRoot, { recursive: true });
+  const key = `v2-${sanitizeArtworkKey(payload.title)}-${sanitizeArtworkKey(payload.artist)}`;
+  const filePath = path.join(cacheRoot, `${key}.json`);
+
+  if (fs.existsSync(filePath)) {
+    try {
+      return JSON.parse(fs.readFileSync(filePath, "utf8")) as LyricsResponse;
+    } catch {
+      // Ignore corrupted cache and refetch.
+    }
+  }
+
+  const primaryLyrics = await fetchLyricsFromLrcLib(payload);
+  const fallbackPlainLyrics = await fetchPlainLyricsFallback(payload);
+  const lyrics = primaryLyrics
+    ? {
+        ...primaryLyrics,
+        instrumental: primaryLyrics.instrumental && !fallbackPlainLyrics ? true : false,
+        plainLyrics: primaryLyrics.plainLyrics ?? fallbackPlainLyrics ?? null
+      }
+    : fallbackPlainLyrics
+      ? { plainLyrics: fallbackPlainLyrics, instrumental: false }
+      : null;
+  if (!lyrics) return null;
+
+  try {
+    fs.writeFileSync(filePath, JSON.stringify(lyrics), "utf8");
+  } catch {
+    // Ignore cache write failures.
+  }
+
+  return lyrics;
+};
+
+const getRendererUrl = (mini = false) => {
+  if (!app.isPackaged) {
+    return `http://localhost:5173${mini ? "?mini=1" : ""}`;
+  }
+  const rendererPath = path.join(workspaceRoot, "renderer", "dist", "index.html");
+  const baseUrl = pathToFileURL(rendererPath).toString();
+  return `${baseUrl}${mini ? "?mini=1" : ""}`;
+};
+
+const broadcastPlaybackState = () => {
+  if (miniPlayerWindow && !miniPlayerWindow.isDestroyed()) {
+    miniPlayerWindow.webContents.send("playback-state", playbackState);
+  }
+};
+
+const showMiniPlayerWindow = async () => {
+  if (miniPlayerWindow && !miniPlayerWindow.isDestroyed()) {
+    miniPlayerWindow.show();
+    miniPlayerWindow.focus();
+    broadcastPlaybackState();
+    return miniPlayerWindow;
+  }
+
+  miniPlayerWindow = new BrowserWindow({
+    width: 300,
+    height: 118,
+    minWidth: 280,
+    minHeight: 108,
+    maxWidth: 340,
+    maxHeight: 160,
+    show: false,
+    resizable: false,
+    maximizable: false,
+    minimizable: true,
+    fullscreenable: false,
+    frame: false,
+    alwaysOnTop: true,
+    backgroundColor: "#121212",
+    title: "Resonance Mini Player",
+    icon: getAppIcon(),
+    autoHideMenuBar: true,
+    webPreferences: {
+      preload: path.join(appRoot, "dist", "preload.cjs"),
+      contextIsolation: true,
+      nodeIntegration: false,
+      webSecurity: app.isPackaged
+    }
+  });
+
+  miniPlayerWindow.setAlwaysOnTop(true, "screen-saver");
+  miniPlayerWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  miniPlayerWindow.once("ready-to-show", () => {
+    miniPlayerWindow?.show();
+    broadcastPlaybackState();
+  });
+  miniPlayerWindow.on("closed", () => {
+    miniPlayerWindow = null;
+  });
+
+  await miniPlayerWindow.loadURL(getRendererUrl(true));
+  return miniPlayerWindow;
+};
 const buildServices = async () => {
   logLine("Building services");
   const userDataPath = app.getPath("userData");
@@ -118,7 +407,56 @@ const buildServices = async () => {
   const sync = new SyncService(library, jobs);
   const recommendations = new RecommendationService(db, library);
   const curation = new CurationService(db, library, recommendations);
-  const server = await createServer({ library, search, downloads, capsule, settings, jobs, sync });
+  const server = await createServer({
+    library,
+    search,
+    downloads,
+    capsule,
+    settings,
+    jobs,
+    sync,
+    playback: {
+      getState: () => playbackState,
+      sendCommand: (command) => {
+        if (command === "show-main") {
+          void showMainWindow();
+          return { ok: true };
+        }
+        if (!mainWindow || mainWindow.isDestroyed()) {
+          return { ok: false, error: "Main player window is not available" };
+        }
+        mainWindow.webContents.send("playback-command", command);
+        return { ok: true };
+      },
+      playTrackById: async (trackId) => {
+        const track = library.getTrackById(trackId);
+        if (!track) {
+          return { ok: false, error: "Track not found" };
+        }
+        if (!mainWindow || mainWindow.isDestroyed()) {
+          return { ok: false, error: "Main player window is not available" };
+        }
+        const payload: PlaybackOpenPayload = { trackId: track.id, queueTrackIds: [track.id] };
+        mainWindow.webContents.send("playback-open-track", payload);
+        return { ok: true, track };
+      },
+      startRadio: async (trackId, options) => {
+        const seedTrack = library.getTrackById(trackId);
+        if (!seedTrack) {
+          return { ok: false, error: "Track not found" };
+        }
+        if (!mainWindow || mainWindow.isDestroyed()) {
+          return { ok: false, error: "Main player window is not available" };
+        }
+        const limit = Math.max(1, Math.min(50, Number(options?.limit ?? 25)));
+        const radioTracks = curation.getTrackRadio(trackId, options?.profile ?? "balanced", limit);
+        const queueTrackIds = [seedTrack.id, ...radioTracks.filter((entry) => entry.id !== seedTrack.id).map((entry) => entry.id)];
+        const payload: PlaybackOpenPayload = { trackId: seedTrack.id, queueTrackIds };
+        mainWindow.webContents.send("playback-open-track", payload);
+        return { ok: true, queueTrackIds };
+      }
+    }
+  });
 
   await downloads.updateYtDlpIfNeeded().catch(() => undefined);
   curation.refreshDailyBundles();
@@ -169,6 +507,7 @@ const createTray = () => {
   tray.setContextMenu(
     Menu.buildFromTemplate([
       { label: "Open Resonance", click: () => void showMainWindow() },
+      { label: "Show Mini Player", click: () => void showMiniPlayerWindow() },
       { label: "Quit", click: () => { isQuitting = true; app.quit(); } }
     ])
   );
@@ -216,6 +555,13 @@ const registerIpcHandlers = (services: Awaited<ReturnType<typeof buildServices>>
   ipcMain.removeHandler("curation:radio");
   ipcMain.removeHandler("curation:auto-queue");
   ipcMain.removeHandler("curation:refresh");
+  ipcMain.removeHandler("artwork:lookup");
+  ipcMain.removeHandler("lyrics:get");
+  ipcMain.removeHandler("mini-player:toggle");
+  ipcMain.removeHandler("playback:state:get");
+  ipcMain.removeHandler("playback:state:update");
+  ipcMain.removeHandler("window:toggle-fullscreen");
+  ipcMain.removeAllListeners("playback:command");
 
   ipcMain.handle("library:all", () => ({
     tracks: services.library.getTracks(),
@@ -253,6 +599,51 @@ const registerIpcHandlers = (services: Awaited<ReturnType<typeof buildServices>>
     return services.curation.refreshDailyBundles(true);
   });
 
+  ipcMain.handle("artwork:lookup", async (_event, payload?: { kind?: "album" | "artist"; name?: string; artist?: string | null }) => {
+    const kind = payload?.kind;
+    const name = payload?.name?.trim();
+    if (!kind || !name) return null;
+    return cacheArtwork(kind, name, payload?.artist ?? null);
+  });
+  ipcMain.handle("lyrics:get", (_event, payload?: LyricsPayload) => {
+    if (!payload?.title || !payload?.artist) return null;
+    return cacheLyrics(payload);
+  });
+  ipcMain.handle("mini-player:toggle", async () => {
+    if (miniPlayerWindow && !miniPlayerWindow.isDestroyed() && miniPlayerWindow.isVisible()) {
+      miniPlayerWindow.hide();
+      return { visible: false };
+    }
+    await showMiniPlayerWindow();
+    return { visible: true };
+  });
+  ipcMain.handle("playback:state:get", () => playbackState);
+  ipcMain.handle("playback:state:update", (_event, payload: PlaybackState) => {
+    playbackState = {
+      track: payload?.track ?? null,
+      isPlaying: Boolean(payload?.isPlaying),
+      currentTime: Number(payload?.currentTime ?? 0),
+      duration: Number(payload?.duration ?? payload?.track?.duration ?? 0),
+      volume: Number(payload?.volume ?? 0.85)
+    };
+    broadcastPlaybackState();
+    return playbackState;
+  });
+  ipcMain.handle("window:toggle-fullscreen", () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return { fullscreen: false };
+    const next = !mainWindow.isFullScreen();
+    mainWindow.setFullScreen(next);
+    return { fullscreen: next };
+  });
+  ipcMain.on("playback:command", (_event, command: "toggle-play" | "next" | "previous" | "show-main") => {
+    if (command === "show-main") {
+      void showMainWindow();
+      return;
+    }
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("playback-command", command);
+    }
+  });
   ipcMain.handle("capsule:history", () => services.capsule.getHistory());
   ipcMain.handle("search:query", (_event, query: string) => services.search.search(query));
   ipcMain.handle("download:track", async (_event, payload) => {
@@ -424,11 +815,7 @@ const createMainWindow = async () => {
     mainWindow?.show();
   });
 
-  if (!app.isPackaged) {
-    await mainWindow.loadURL("http://localhost:5173");
-  } else {
-    await mainWindow.loadFile(path.join(workspaceRoot, "renderer", "dist", "index.html"));
-  }
+  await mainWindow.loadURL(getRendererUrl(false));
 };
 
 if (!app.requestSingleInstanceLock()) {
@@ -477,6 +864,11 @@ app.on("window-all-closed", () => {
 app.on("activate", () => {
   void showMainWindow();
 });
+
+
+
+
+
 
 
 

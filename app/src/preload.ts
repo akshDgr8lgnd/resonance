@@ -34,6 +34,27 @@ contextBridge.exposeInMainWorld("resonance", {
     ipcRenderer.invoke("curation:radio", { trackId, profile, limit }),
   getAutoQueue: (currentTrackId?: string, profile: "balanced" | "bollywood" | "discovery" | "comfort" = "balanced", limit = 15) =>
     ipcRenderer.invoke("curation:auto-queue", { currentTrackId, profile, limit }),
-  refreshCurations: () => ipcRenderer.invoke("curation:refresh")
+  refreshCurations: () => ipcRenderer.invoke("curation:refresh"),
+  lookupArtwork: (payload: { kind: "album" | "artist"; name: string; artist?: string | null }) => ipcRenderer.invoke("artwork:lookup", payload),
+  fetchLyrics: (payload: { title: string; artist: string; album?: string | null; duration?: number | null }) => ipcRenderer.invoke("lyrics:get", payload),
+  toggleMiniPlayer: () => ipcRenderer.invoke("mini-player:toggle"),
+  getPlaybackState: () => ipcRenderer.invoke("playback:state:get"),
+  updatePlaybackState: (payload: { track: any; isPlaying: boolean; currentTime: number; duration: number; volume: number }) => ipcRenderer.invoke("playback:state:update", payload),
+  sendPlaybackCommand: (command: "toggle-play" | "next" | "previous" | "show-main") => ipcRenderer.send("playback:command", command),
+  onPlaybackState: (callback: (state: any) => void) => {
+    const listener = (_event: unknown, state: any) => callback(state);
+    ipcRenderer.on("playback-state", listener);
+    return () => ipcRenderer.removeListener("playback-state", listener);
+  },
+  onPlaybackCommand: (callback: (command: "toggle-play" | "next" | "previous" | "show-main") => void) => {
+    const listener = (_event: unknown, command: "toggle-play" | "next" | "previous" | "show-main") => callback(command);
+    ipcRenderer.on("playback-command", listener);
+    return () => ipcRenderer.removeListener("playback-command", listener);
+  },
+  onPlaybackOpenTrack: (callback: (payload: { trackId: string; queueTrackIds?: string[] }) => void) => {
+    const listener = (_event: unknown, payload: { trackId: string; queueTrackIds?: string[] }) => callback(payload);
+    ipcRenderer.on("playback-open-track", listener);
+    return () => ipcRenderer.removeListener("playback-open-track", listener);
+  },
+  toggleFullscreen: () => ipcRenderer.invoke("window:toggle-fullscreen")
 });
-

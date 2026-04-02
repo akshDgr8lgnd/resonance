@@ -5,6 +5,16 @@ import QRCode from "qrcode";
 import type { CapsuleService, DeviceRecord, DownloadJobService, DownloadService, LibraryService, SearchService, SettingsService, SyncService } from "@resonance/core";
 import { z } from "zod";
 
+type PlaybackCommand = "toggle-play" | "next" | "previous" | "show-main";
+type RecommendationProfile = "balanced" | "bollywood" | "discovery" | "comfort";
+
+type PlaybackController = {
+  getState: () => unknown;
+  sendCommand: (command: PlaybackCommand) => { ok: boolean; error?: string };
+  playTrackById: (trackId: string) => Promise<{ ok: boolean; error?: string; track?: unknown }>;
+  startRadio?: (trackId: string, options?: { profile?: RecommendationProfile; limit?: number }) => Promise<{ ok: boolean; error?: string; queueTrackIds?: string[] }>;
+};
+
 type ServerDeps = {
   library: LibraryService;
   search: SearchService;
@@ -13,6 +23,7 @@ type ServerDeps = {
   settings: SettingsService;
   jobs: DownloadJobService;
   sync: SyncService;
+  playback?: PlaybackController;
 };
 
 const authMiddleware = (token: string) => (req: express.Request, res: express.Response, next: express.NextFunction) => {
@@ -57,6 +68,13 @@ export const createServer = async (deps: ServerDeps) => {
     thumbnail: z.string().nullable().optional(),
     desktopCanDownload: z.boolean().default(true),
     allowAndroidFallback: z.boolean().default(true)
+  });
+  const playbackCommandSchema = z.object({ command: z.enum(["toggle-play", "next", "previous", "show-main"]) });
+  const playbackPlaySchema = z.object({ trackId: z.string().min(1) });
+  const radioSchema = z.object({
+    trackId: z.string().min(1),
+    profile: z.enum(["balanced", "bollywood", "discovery", "comfort"]).default("balanced"),
+    limit: z.number().int().min(1).max(50).default(25)
   });
   const downloadSchema = z.union([
     z.object({
@@ -192,6 +210,44 @@ export const createServer = async (deps: ServerDeps) => {
       searchResult
     );
     res.json({ resolution });
+  });
+
+  app.get("/playback/state", (_req, res) => {
+    if (!deps.playback) {
+      res.status(503).json({ error: "Playback controller unavailable" });
+      return;
+    }
+    res.json({ state: deps.playback.getState() });
+  });
+
+  app.post("/playback/command", (req, res) => {
+    if (!deps.playback) {
+      res.status(503).json({ error: "Playback controller unavailable" });
+      return;
+    }
+    const parsed = playbackCommandSchema.parse(req.body);
+    const result = deps.playback.sendCommand(parsed.command);
+    res.status(result.ok ? 200 : 409).json(result);
+  });
+
+  app.post("/playback/play", async (req, res) => {
+    if (!deps.playback) {
+      res.status(503).json({ error: "Playback controller unavailable" });
+      return;
+    }
+    const parsed = playbackPlaySchema.parse(req.body);
+    const result = await deps.playback.playTrackById(parsed.trackId);
+    res.status(result.ok ? 200 : 404).json(result);
+  });
+
+  app.post("/playback/radio", async (req, res) => {
+    if (!deps.playback?.startRadio) {
+      res.status(503).json({ error: "Radio controller unavailable" });
+      return;
+    }
+    const parsed = radioSchema.parse(req.body);
+    const result = await deps.playback.startRadio(parsed.trackId, { profile: parsed.profile, limit: parsed.limit });
+    res.status(result.ok ? 200 : 404).json(result);
   });
 
   app.get("/capsule/history", (_req, res) => {

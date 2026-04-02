@@ -2,7 +2,7 @@ import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { NavLink, Route, Routes, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import resonanceMark from "./assets/logo.png";
+import resonanceMark from "./assets/logo.svg";
 import { usePlayerStore } from "./store";
 import "./styles.css";
 import {
@@ -25,7 +25,7 @@ import {
   Volume2,
   ListMusic,
   Maximize,
-  User,
+  Minimize2,
   Download,
   Trash2,
   MoreVertical,
@@ -132,6 +132,27 @@ type DailyCurationBundle = {
   timeShelves: CuratedShelf[];
 };
 
+type LyricsResponse = {
+  syncedLyrics?: string | null;
+  plainLyrics?: string | null;
+  instrumental?: boolean;
+};
+
+type LyricLine = {
+  time: number;
+  text: string;
+};
+
+type PlaybackSnapshot = {
+  track: Track | null;
+  isPlaying: boolean;
+  currentTime: number;
+  duration: number;
+  volume: number;
+};
+
+type PlaybackCommand = "toggle-play" | "next" | "previous" | "show-main";
+
 type ShelfCardItem = {
   id: string;
   name: string;
@@ -162,6 +183,28 @@ const formatRuntime = (seconds: number) => {
   return hours ? `${hours} hr ${minutes} min` : `${minutes} min`;
 };
 
+const isMiniMode = new URLSearchParams(window.location.search).get("mini") === "1";
+
+const parseSyncedLyrics = (value: string | null | undefined): LyricLine[] => {
+  if (!value) return [];
+
+  return value
+    .split(/\r?\n/)
+    .flatMap((line) => {
+      const matches = [...line.matchAll(/\[(\d{2}):(\d{2})(?:[.:](\d{2,3}))?\]/g)];
+      const text = line.replace(/\[(\d{2}):(\d{2})(?:[.:](\d{2,3}))?\]/g, "").trim();
+      if (!matches.length || !text) return [];
+      return matches.map((match) => {
+        const minutes = Number(match[1] ?? 0);
+        const seconds = Number(match[2] ?? 0);
+        const fractionRaw = match[3] ?? "0";
+        const fraction = fractionRaw.length === 3 ? Number(fractionRaw) / 1000 : Number(fractionRaw) / 100;
+        return { time: minutes * 60 + seconds + fraction, text };
+      });
+    })
+    .sort((a, b) => a.time - b.time);
+};
+
 const toAssetSrc = (value: string | null | undefined) => {
   if (!value) return null;
   if (value.startsWith("http://") || value.startsWith("https://") || value.startsWith("data:") || value.startsWith("file://")) {
@@ -175,10 +218,41 @@ const toAssetSrc = (value: string | null | undefined) => {
   return `file:///${encoded.join("/")}`;
 };
 
-const Artwork = ({ src, alt, size = "md", round = false }: { src: string | null | undefined; alt: string; size?: "xs" | "sm" | "md" | "lg"; round?: boolean }) => {
+const normalizeText = (value: string | null | undefined) => (value ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+
+const matchesLibraryTrack = (track: Track, candidate: { title: string; artists: string[]; album?: string | null; videoId?: string | null }) => {
+  if (candidate.videoId && track.youtubeVideoId && track.youtubeVideoId === candidate.videoId) return true;
+
+  const titleA = normalizeText(track.title);
+  const titleB = normalizeText(candidate.title);
+  const albumA = normalizeText(track.album);
+  const albumB = normalizeText(candidate.album);
+  const artistSet = new Set(track.artists.map(normalizeText));
+  const artistOverlap = candidate.artists.map(normalizeText).filter((artist) => artistSet.has(artist)).length;
+
+  if (titleA && titleA === titleB && artistOverlap > 0) {
+    if (!albumB || !albumA || albumA === albumB) return true;
+  }
+
+  return false;
+};
+
+const Artwork = ({
+  src,
+  alt,
+  size = "md",
+  round = false,
+  className = ""
+}: {
+  src: string | null | undefined;
+  alt: string;
+  size?: "xs" | "sm" | "md" | "lg";
+  round?: boolean;
+  className?: string;
+}) => {
   const resolved = toAssetSrc(src);
-  const className = `${resolved ? "cover-thumb" : "cover-orb"} cover-${size}${round ? " round" : ""}`;
-  return resolved ? <img className={className} src={resolved} alt={alt} /> : <div className={className} />;
+  const classes = `${resolved ? "cover-thumb" : "cover-orb"} cover-${size}${round ? " round" : ""}${className ? ` ${className}` : ""}`;
+  return resolved ? <img className={classes} src={resolved} alt={alt} /> : <div className={classes} />;
 };
 
 const normalizeAlbumGroup = (name: string) => {
@@ -349,19 +423,18 @@ const buildShelfCover = (shelf: CuratedShelf) => {
     if (acc.length < 3) acc.push(word);
     return acc;
   }, []);
-  const artistHints = Array.from(new Set(shelf.tracks.flatMap((track) => track.artists).filter(Boolean))).slice(0, 3).join(" • ");
+  const artistHints = Array.from(new Set(shelf.tracks.flatMap((track) => track.artists).filter(Boolean))).slice(0, 2).join(" / ");
   const lineMarkup = lines
     .slice(0, 3)
     .map(
       (line, index) =>
-        `<text x="74" y="${430 + index * 92}" font-size="74" font-weight="800" fill="${palette.accent}">${escapeSvgText(line)}</text>`
+        `<text x="82" y="${432 + index * 92}" font-size="76" font-weight="800" fill="${palette.accent}" font-family="Georgia, 'Times New Roman', serif">${escapeSvgText(line)}</text>`
     )
     .join("");
   const footer = artistHints || shelf.subtitle;
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" role="img" aria-label="${escapeSvgText(shelf.title)} cover art"><defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="${palette.start}"/><stop offset="100%" stop-color="${palette.end}"/></linearGradient><linearGradient id="orb" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="${palette.glow}" stop-opacity="0.9"/><stop offset="100%" stop-color="${palette.accent}" stop-opacity="0.12"/></linearGradient><filter id="blur"><feGaussianBlur stdDeviation="26"/></filter></defs><rect width="800" height="800" rx="52" fill="${palette.background}"/><rect x="28" y="28" width="744" height="744" rx="40" fill="url(#bg)"/><circle cx="610" cy="180" r="160" fill="url(#orb)" filter="url(#blur)"/><circle cx="214" cy="644" r="182" fill="${palette.background}" opacity="0.18"/><path d="M84 262C176 190 290 168 420 176C536 184 624 150 716 88V258C626 328 540 362 410 354C284 346 176 370 84 442V262Z" fill="${palette.background}" opacity="0.22"/><path d="M84 536C160 486 234 468 330 472C456 478 548 548 716 524V694C572 718 466 666 344 650C248 638 172 648 84 690V536Z" fill="${palette.background}" opacity="0.28"/><rect x="74" y="74" width="220" height="58" rx="29" fill="rgba(6, 10, 18, 0.34)" stroke="rgba(255,255,255,0.22)"/><text x="110" y="113" font-size="28" font-weight="700" fill="${palette.accent}" letter-spacing="4">${escapeSvgText(badge)}</text>${lineMarkup}<text x="78" y="710" font-size="26" font-weight="600" fill="${palette.accent}" opacity="0.82">${escapeSvgText(footer)}</text></svg>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" role="img" aria-label="${escapeSvgText(shelf.title)} cover art"><defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="${palette.start}"/><stop offset="100%" stop-color="${palette.end}"/></linearGradient><linearGradient id="veil" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="rgba(6,10,18,0.06)"/><stop offset="100%" stop-color="rgba(6,10,18,0.52)"/></linearGradient><radialGradient id="glow" cx="80%" cy="18%" r="34%"><stop offset="0%" stop-color="${palette.glow}" stop-opacity="0.95"/><stop offset="100%" stop-color="${palette.glow}" stop-opacity="0"/></radialGradient><filter id="soft"><feGaussianBlur stdDeviation="22"/></filter></defs><rect width="800" height="800" rx="54" fill="${palette.background}"/><rect x="30" y="30" width="740" height="740" rx="42" fill="url(#bg)"/><rect x="30" y="30" width="740" height="740" rx="42" fill="url(#veil)"/><circle cx="614" cy="164" r="138" fill="url(#glow)" filter="url(#soft)"/><rect x="82" y="82" width="636" height="636" rx="34" fill="rgba(9,14,24,0.14)" stroke="rgba(255,255,255,0.12)"/><path d="M82 246C184 198 286 188 398 196C514 204 616 182 718 126V254C608 308 510 326 390 320C280 314 182 334 82 390V246Z" fill="rgba(8,12,20,0.18)"/><path d="M82 556C176 516 272 510 382 518C498 526 596 564 718 536V718H82V556Z" fill="rgba(8,12,20,0.24)"/><line x1="82" y1="150" x2="718" y2="150" stroke="rgba(255,255,255,0.14)"/><text x="82" y="132" font-size="22" font-weight="700" fill="${palette.accent}" opacity="0.82" letter-spacing="6" font-family="'Segoe UI', Arial, sans-serif">${escapeSvgText(badge)}</text>${lineMarkup}<text x="82" y="678" font-size="24" font-weight="600" fill="${palette.accent}" opacity="0.84" font-family="'Segoe UI', Arial, sans-serif">${escapeSvgText(footer)}</text><text x="82" y="715" font-size="18" font-weight="600" fill="${palette.accent}" opacity="0.46" letter-spacing="4" font-family="'Segoe UI', Arial, sans-serif">RESONANCE CURATED</text></svg>`;
   return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
 };
-
 const shelfToCardItems = (shelves: CuratedShelf[]): ShelfCardItem[] => shelves.map((shelf) => ({
   id: shelf.id,
   name: shelf.title,
@@ -657,9 +730,6 @@ const MainHeader = ({ title, subtitle }: { title: string; subtitle: string }) =>
       <div className="header-controls">
         <button className="circle-button" onClick={() => navigate(-1)} title="Back"><ChevronLeft size={16} /></button>
         <button className="circle-button" onClick={() => navigate(1)} title="Forward"><ChevronRight size={16} /></button>
-      </div>
-      <div className="header-actions">
-        <button className="profile-chip" title="Profile"><User size={14} /></button>
       </div>
     </header>
   );
@@ -990,11 +1060,19 @@ const RadioPage = ({
   onStartRadio: (track: Track) => void;
   onHideFromRecommendations: (track: Track) => void;
 }) => {
+  useEffect(() => {
+    if (!queue.length && currentTrack) {
+      void onStartRadio(currentTrack);
+    }
+  }, [queue.length, currentTrack?.id]);
+
   return (
     <div className="page-stack">
       <section className="spotify-section">
         <div className="detail-hero compact radio-hero">
-          <Artwork src={currentTrack?.coverPath} alt={currentTrack?.title ?? "Radio"} size="lg" />
+          <div className="detail-artwork-frame detail-artwork-frame-radio">
+            <Artwork src={currentTrack?.coverPath} alt={currentTrack?.title ?? "Radio"} size="lg" className="detail-artwork" />
+          </div>
           <div>
             <span className="eyebrow">Radio</span>
             <h2>{currentTrack ? `${currentTrack.title} Radio` : "Auto Radio"}</h2>
@@ -1159,7 +1237,9 @@ const SearchPage = ({ onPlay }: { onPlay: (track: Track, tracks: Track[]) => voi
         {selectedAlbum ? (
           <div className="search-album-detail">
             <div className="detail-hero compact">
-              <Artwork src={selectedAlbum.coverPath} alt={selectedAlbum.name} size="lg" />
+              <div className="detail-artwork-frame detail-artwork-frame-search">
+                <Artwork src={selectedAlbum.coverPath} alt={selectedAlbum.name} size="lg" className="detail-artwork" />
+              </div>
               <div>
                 <span className="eyebrow">Album View</span>
                 <h2>{selectedAlbum.name}</h2>
@@ -1168,10 +1248,10 @@ const SearchPage = ({ onPlay }: { onPlay: (track: Track, tracks: Track[]) => voi
                   <button className="secondary-hero-button">Album tracks below</button>
                   <button
                     className="accent-button"
-                    disabled={downloadingAlbums.has(selectedAlbum.id)}
+                    disabled={downloadingAlbums.has(selectedAlbum.id) || selectedAlbum.tracks.every((item: SearchResult) => libraryTracks.some((track) => matchesLibraryTrack(track, item)))}
                     onClick={() => handleDownload(selectedAlbum)}
                   >
-                    {downloadingAlbums.has(selectedAlbum.id) ? "Downloading..." : "Download Album"}
+                    {downloadingAlbums.has(selectedAlbum.id) ? "Downloading..." : selectedAlbum.tracks.every((item: SearchResult) => libraryTracks.some((track) => matchesLibraryTrack(track, item))) ? "Downloaded" : "Download Album"}
                   </button>
                 </div>
               </div>
@@ -1180,38 +1260,52 @@ const SearchPage = ({ onPlay }: { onPlay: (track: Track, tracks: Track[]) => voi
               {selectedAlbum.tracks
                 .slice()
                 .sort((a, b) => (a.trackNumber ?? 999) - (b.trackNumber ?? 999) || a.title.localeCompare(b.title))
-                .map((item: any, index) => (
-                  <div key={`${item.videoId}-${item.id}-album`} className="search-result-row album-track-row">
-                    <div className="search-result-main">
-                      <div className="track-index-cell" style={{ flex: '0 0 24px' }}>
-                        <span className="track-index-num">{item.trackNumber ?? index + 1}</span>
+                .map((item: any, index) => {
+                  const localTrack = libraryTracks.find((track) => matchesLibraryTrack(track, item));
+                  const alreadyDownloaded = !!localTrack;
+                  return (
+                    <div
+                      key={`${item.videoId}-${item.id}-album`}
+                      className="search-result-row album-track-row"
+                      style={{ cursor: alreadyDownloaded ? "pointer" : "default" }}
+                      onClick={() => {
+                        if (localTrack) {
+                          onPlay(localTrack, libraryTracks);
+                        }
+                      }}
+                    >
+                      <div className="search-result-main">
+                        <div className="track-index-cell" style={{ flex: '0 0 24px' }}>
+                          <span className="track-index-num">{item.trackNumber ?? index + 1}</span>
+                        </div>
+                        <div>
+                          <strong>{item.title}</strong>
+                          <span>{item.artists.join(", ")}</span>
+                        </div>
                       </div>
-                      <div>
-                        <strong>{item.title}</strong>
-                        <span>{item.artists.join(", ")}</span>
+                      <div className="search-result-actions">
+                        <span>{formatDuration(item.duration)}</span>
+                        <button
+                          className={alreadyDownloaded ? "accent-button outline" : "accent-button"}
+                          disabled={downloadMutation.isPending || alreadyDownloaded}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setDownloadFeedback(null);
+                            downloadMutation.mutate(item, {
+                              onSuccess: async (result) => {
+                                await queryClient.invalidateQueries({ queryKey: ["library"] });
+                                setDownloadFeedback(result.ok ? `Downloaded ${item.title}.` : result.error ?? "Download failed.");
+                              },
+                              onError: () => setDownloadFeedback("Download failed. Please try again.")
+                            });
+                          }}
+                        >
+                          {alreadyDownloaded ? "Downloaded" : "Download"}
+                        </button>
                       </div>
                     </div>
-                    <div className="search-result-actions">
-                      <span>{formatDuration(item.duration)}</span>
-                      <button
-                        className="accent-button"
-                        disabled={downloadMutation.isPending}
-                        onClick={() => {
-                          setDownloadFeedback(null);
-                          downloadMutation.mutate(item, {
-                            onSuccess: async (result) => {
-                              await queryClient.invalidateQueries({ queryKey: ["library"] });
-                              setDownloadFeedback(result.ok ? `Downloaded ${item.title}.` : result.error ?? "Download failed.");
-                            },
-                            onError: () => setDownloadFeedback("Download failed. Please try again.")
-                          });
-                        }}
-                      >
-                        Download
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
             </div>
           </div>
         ) : null}
@@ -1269,8 +1363,8 @@ const SearchPage = ({ onPlay }: { onPlay: (track: Track, tracks: Track[]) => voi
               <div className="search-result-actions">
                 <span>{formatDuration(item.duration)}</span>
                 {(() => {
-                  const exactMatch = libraryTracks.find(t => t.youtubeVideoId === item.videoId && t.album === item.album);
-                  const anyMatch = libraryTracks.find(t => t.youtubeVideoId === item.videoId);
+                  const exactMatch = libraryTracks.find(t => matchesLibraryTrack(t, item));
+                  const anyMatch = libraryTracks.find(t => t.youtubeVideoId === item.videoId || matchesLibraryTrack(t, item));
                   
                   let btnText = "Download";
                   let btnClass = "accent-button";
@@ -1369,6 +1463,23 @@ const LibraryPage = ({
   const selectedArtist = artists.find((artist) => artist.id === selectedArtistId) ?? artists[0] ?? null;
   const selectedPlaylist = playlists.find((playlist) => playlist.id === selectedPlaylistId) ?? playlists[0] ?? null;
 
+  const selectedAlbumArtworkQuery = useQuery<string | null>({
+    queryKey: ["library-artwork", "album", selectedAlbum?.name, selectedAlbum?.artist],
+    queryFn: () => window.resonance.lookupArtwork({ kind: "album", name: selectedAlbum!.name, artist: selectedAlbum!.artist }),
+    enabled: !!selectedAlbum,
+    staleTime: 1000 * 60 * 60 * 24
+  });
+
+  const selectedArtistArtworkQuery = useQuery<string | null>({
+    queryKey: ["library-artwork", "artist", selectedArtist?.name],
+    queryFn: () => window.resonance.lookupArtwork({ kind: "artist", name: selectedArtist!.name }),
+    enabled: !!selectedArtist,
+    staleTime: 1000 * 60 * 60 * 24
+  });
+
+  const selectedAlbumArtwork = selectedAlbumArtworkQuery.data ?? selectedAlbum?.coverPath ?? null;
+  const selectedArtistArtwork = selectedArtistArtworkQuery.data ?? selectedArtist?.coverPath ?? null;
+
   const updateLibraryRoute = (next: { tab: "songs" | "albums" | "artists" | "playlists"; album?: string | null; artist?: string | null; playlist?: string | null }) => {
     const params = new URLSearchParams();
     params.set("tab", next.tab);
@@ -1441,7 +1552,9 @@ const LibraryPage = ({
             {selectedAlbum ? (
               <div className="detail-main">
                 <div className="detail-hero">
-                  <Artwork src={selectedAlbum.coverPath} alt={selectedAlbum.name} size="lg" />
+                  <div className="detail-artwork-frame">
+                    <Artwork src={selectedAlbumArtwork} alt={selectedAlbum.name} size="lg" className="detail-artwork" />
+                  </div>
                   <div>
                     <span className="eyebrow">Album</span>
                     <h2>{selectedAlbum.name}</h2>
@@ -1486,7 +1599,9 @@ const LibraryPage = ({
             {selectedArtist ? (
               <div className="detail-main">
                 <div className="detail-hero">
-                  <Artwork src={selectedArtist.coverPath} alt={selectedArtist.name} size="lg" round />
+                  <div className="detail-artwork-frame detail-artwork-frame-round">
+                    <Artwork src={selectedArtistArtwork} alt={selectedArtist.name} size="lg" round className="detail-artwork" />
+                  </div>
                   <div>
                     <span className="eyebrow">Artist</span>
                     <h2>{selectedArtist.name}</h2>
@@ -1519,7 +1634,9 @@ const LibraryPage = ({
             {selectedPlaylist ? (
               <div className="detail-main">
                 <div className="detail-hero">
-                  <div className="artwork-placeholder lg"><History size={64} /></div>
+                  <div className="detail-artwork-frame detail-artwork-frame-placeholder">
+                    <div className="artwork-placeholder lg"><History size={64} /></div>
+                  </div>
                   <div>
                     <span className="eyebrow">Playlist</span>
                     <h2>{selectedPlaylist.name}</h2>
@@ -1748,6 +1865,118 @@ const SettingsPage = ({
     </div>
   );
 };
+const LyricsPage = ({
+  currentTrack,
+  currentTime,
+  isPlaying,
+  onSeek
+}: {
+  currentTrack: Track | null;
+  currentTime: number;
+  isPlaying: boolean;
+  onSeek: (time: number) => void;
+}) => {
+  const lyricsQuery = useQuery<LyricsResponse | null>({
+    queryKey: ["lyrics", currentTrack?.title, currentTrack?.artists[0], currentTrack?.album],
+    queryFn: () => window.resonance.fetchLyrics({
+      title: currentTrack!.title,
+      artist: currentTrack!.artists[0] ?? "",
+      album: currentTrack!.album,
+      duration: currentTrack!.duration
+    }),
+    enabled: !!currentTrack
+  });
+  const lyricLines = useMemo(() => parseSyncedLyrics(lyricsQuery.data?.syncedLyrics), [lyricsQuery.data?.syncedLyrics]);
+  const activeIndex = lyricLines.findIndex((line, index) => currentTime >= line.time && currentTime < (lyricLines[index + 1]?.time ?? Number.POSITIVE_INFINITY));
+  const lyricsContainerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!lyricsContainerRef.current || activeIndex < 0) return;
+    const target = lyricsContainerRef.current.querySelector<HTMLElement>(`[data-line-index="${activeIndex}"]`);
+    target?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, [activeIndex]);
+
+  if (!currentTrack) {
+    return <section className="spotify-section"><div className="empty-card">Play something first and the karaoke view will light up here.</div></section>;
+  }
+
+  return (
+    <div className="page-stack lyrics-page">
+      <section className="spotify-section lyrics-shell">
+        <div className="lyrics-stage">
+          <div className="detail-artwork-frame detail-artwork-frame-search lyrics-artwork">
+            <Artwork src={currentTrack.coverPath} alt={currentTrack.title} size="lg" className="detail-artwork" />
+          </div>
+          <div className="lyrics-intro">
+            <span className="eyebrow">Lyrics</span>
+            <h2>{currentTrack.title}</h2>
+            <p>{currentTrack.artists.join(", ")} {isPlaying ? "is playing now." : "is paused."}</p>
+          </div>
+        </div>
+        {lyricsQuery.isLoading ? (
+          <div className="empty-card">Fetching synced lyrics...</div>
+        ) : lyricsQuery.data?.instrumental ? (
+          <div className="empty-card">This track looks instrumental, so there are no vocals to sync here.</div>
+        ) : lyricLines.length ? (
+          <div className="lyrics-lines" ref={lyricsContainerRef}>
+            {lyricLines.map((line, index) => (
+              <button
+                key={`${line.time}-${index}`}
+                type="button"
+                data-line-index={index}
+                className={index == activeIndex ? "lyric-line active" : "lyric-line"}
+                onClick={() => onSeek(line.time)}
+              >
+                <span>{line.text}</span>
+              </button>
+            ))}
+          </div>
+        ) : lyricsQuery.data?.plainLyrics ? (
+          <pre className="plain-lyrics-block">{lyricsQuery.data.plainLyrics}</pre>
+        ) : (
+          <div className="empty-card">No synced lyrics found for this track yet.</div>
+        )}
+      </section>
+    </div>
+  );
+};
+
+const MiniPlayerView = ({ state }: { state: PlaybackSnapshot }) => {
+  const track = state.track;
+
+  return (
+    <div className="mini-player-shell">
+      <div className="mini-player-card">
+        <div className="mini-player-main">
+          <Artwork src={track?.coverPath} alt={track?.title ?? "Mini player"} size="sm" />
+          <div className="mini-player-copy">
+            <strong>{track?.title ?? "Nothing playing"}</strong>
+            <span>{track?.artists.join(", ") ?? "Open the main window and start a song."}</span>
+          </div>
+          <button className="transport-icon mini-no-drag" type="button" title="Open main window" onClick={() => window.resonance.sendPlaybackCommand("show-main")}>
+            <ArrowRight size={14} />
+          </button>
+        </div>
+        <div className="mini-player-controls">
+          <button className="transport-icon mini-no-drag" type="button" title="Previous" onClick={() => window.resonance.sendPlaybackCommand("previous")} disabled={!track}>
+            <SkipBack size={14} fill="currentColor" />
+          </button>
+          <button className="transport-play mini-no-drag" type="button" title={state.isPlaying ? "Pause" : "Play"} onClick={() => window.resonance.sendPlaybackCommand("toggle-play")} disabled={!track}>
+            {state.isPlaying ? <Pause size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" />}
+          </button>
+          <button className="transport-icon mini-no-drag" type="button" title="Next" onClick={() => window.resonance.sendPlaybackCommand("next")} disabled={!track}>
+            <SkipForward size={14} fill="currentColor" />
+          </button>
+        </div>
+        <div className="mini-player-progress">
+          <span>{formatDuration(Math.floor(state.currentTime))}</span>
+          <div className="mini-player-progress-bar"><span style={{ width: `${((state.currentTime / (state.duration || 1)) * 100).toFixed(2)}%` }} /></div>
+          <span>{formatDuration(Math.floor(state.duration))}</span>
+        </div>
+      </div>
+    </div>
+  );
+};
 const RoutedContent = ({
   library,
   albums,
@@ -1760,6 +1989,9 @@ const RoutedContent = ({
   queue,
   currentTrack,
   currentTrackId,
+  currentTime,
+  isPlaying,
+  onSeek,
   onPlay,
   onStartRadio,
   onHideFromRecommendations,
@@ -1779,6 +2011,9 @@ const RoutedContent = ({
   queue: Track[];
   currentTrack: Track | null;
   currentTrackId: string | null;
+  currentTime: number;
+  isPlaying: boolean;
+  onSeek: (time: number) => void;
   onPlay: (track: Track, tracks: Track[]) => void;
   onStartRadio: (track: Track) => void;
   onHideFromRecommendations: (track: Track) => void;
@@ -1793,6 +2028,7 @@ const RoutedContent = ({
     "/search": { title: "Search", subtitle: "Find songs, albums, and artists" },
     "/library": { title: "Your Library", subtitle: "Albums, artists, and saved songs" },
     "/radio": { title: "Radio", subtitle: "Continuous queues built from your songs" },
+    "/lyrics": { title: "Lyrics", subtitle: "Real-time synced karaoke view" },
     "/capsule": { title: "Sound Capsule", subtitle: "Analytics from your listening" },
     "/settings": { title: "Settings", subtitle: "Desktop node and pairing" }
   };
@@ -1807,6 +2043,7 @@ const RoutedContent = ({
           <Route path="/search" element={<SearchPage onPlay={onPlay} />} />
           <Route path="/library" element={<LibraryPage library={library} albums={albums} artists={artists} playlists={playlists} currentTrackId={currentTrackId} onPlay={onPlay} onStartRadio={onStartRadio} onHideFromRecommendations={onHideFromRecommendations} />} />
           <Route path="/radio" element={<RadioPage queue={queue} currentTrack={currentTrack} currentTrackId={currentTrackId} onPlay={onPlay} onStartRadio={onStartRadio} onHideFromRecommendations={onHideFromRecommendations} />} />
+          <Route path="/lyrics" element={<LyricsPage currentTrack={currentTrack} currentTime={currentTime} isPlaying={isPlaying} onSeek={onSeek} />} />
           <Route path="/capsule" element={<CapsulePage />} />
           <Route path="/settings" element={<SettingsPage hiddenTracks={hiddenTracks} onUnhideTrack={onUnhideTrack} onUnhideAll={onUnhideAll} />} />
         </Routes>
@@ -1815,12 +2052,21 @@ const RoutedContent = ({
   );
 };
 export const App = () => {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const lastPlaybackSyncRef = useRef("");
   const { isPlaying, currentTrackId, setCurrentTrack, setPlaying } = usePlayerStore();
   const [currentTrack, setCurrentTrackMeta] = useState<Track | null>(null);
   const [queue, setQueue] = useState<Track[]>([]);
   const [isQueueDrawerOpen, setQueueDrawerOpen] = useState(false);
+  const [miniPlaybackState, setMiniPlaybackState] = useState<PlaybackSnapshot>({
+    track: null,
+    isPlaying: false,
+    currentTime: 0,
+    duration: 0,
+    volume: 0.85
+  });
   const [pinnedShelfIds, setPinnedShelfIds] = useState<string[]>(() => {
     try {
       const raw = window.localStorage.getItem(PINNED_SHELVES_STORAGE_KEY);
@@ -1839,6 +2085,9 @@ export const App = () => {
   });
   const [volume, setVolume] = useState(0.85);
   const [currentTime, setCurrentTime] = useState(0);
+  const [playbackDuration, setPlaybackDuration] = useState(0);
+  const [repeatMode, setRepeatMode] = useState<"off" | "all" | "one">("off");
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [recommendationProfile, setRecommendationProfile] = useState<RecommendationProfile | null>(() => {
     const stored = window.localStorage.getItem(RECOMMENDATION_PROFILE_STORAGE_KEY);
     return stored === "balanced" || stored === "bollywood" || stored === "discovery" || stored === "comfort" ? stored : null;
@@ -1897,14 +2146,65 @@ export const App = () => {
   }, [volume]);
 
   useEffect(() => {
-    if (!audioRef.current || !currentTrack || !currentTrack.filePath) return;
-    audioRef.current.src = toAssetSrc(currentTrack.filePath) ?? currentTrack.filePath;
+    if (!audioRef.current || !currentTrack?.filePath) return;
+    const nextSrc = toAssetSrc(currentTrack.filePath) ?? currentTrack.filePath;
+    if (audioRef.current.src === nextSrc) return;
+    audioRef.current.src = nextSrc;
     audioRef.current.currentTime = 0;
+    audioRef.current.playbackRate = 1;
+    audioRef.current.defaultPlaybackRate = 1;
     setCurrentTime(0);
+    setPlaybackDuration(currentTrack.duration || 0);
     if (isPlaying) {
       void audioRef.current.play();
     }
-  }, [currentTrack, isPlaying]);
+  }, [currentTrack?.id, currentTrack?.filePath]);
+
+  useEffect(() => {
+    if (!audioRef.current || !currentTrack) return;
+    audioRef.current.playbackRate = 1;
+    audioRef.current.defaultPlaybackRate = 1;
+    if (isPlaying) {
+      void audioRef.current.play();
+    } else {
+      audioRef.current.pause();
+    }
+  }, [isPlaying, currentTrack?.id]);
+
+  useEffect(() => {
+    if (!isMiniMode) return;
+    void window.resonance.getPlaybackState().then(setMiniPlaybackState);
+    return window.resonance.onPlaybackState((state) => setMiniPlaybackState(state));
+  }, []);
+
+  useEffect(() => {
+    if (isMiniMode) return;
+    const trackPayload = currentTrack ? {
+      id: currentTrack.id,
+      title: currentTrack.title,
+      artists: currentTrack.artists,
+      album: currentTrack.album,
+      coverPath: currentTrack.coverPath,
+      duration: currentTrack.duration,
+      filePath: currentTrack.filePath
+    } : null;
+    const signature = JSON.stringify({
+      trackId: trackPayload?.id ?? null,
+      isPlaying,
+      currentSecond: Math.floor(currentTime),
+      duration: playbackDuration || currentTrack?.duration || 0,
+      volume: Number(volume.toFixed(2))
+    });
+    if (signature === lastPlaybackSyncRef.current) return;
+    lastPlaybackSyncRef.current = signature;
+    void window.resonance.updatePlaybackState({
+      track: trackPayload,
+      isPlaying,
+      currentTime,
+      duration: playbackDuration || currentTrack?.duration || 0,
+      volume
+    });
+  }, [currentTrack, currentTime, isPlaying, volume, playbackDuration]);
 
   const refreshAfterPlaybackEvent = async () => {
     await Promise.all([
@@ -1937,6 +2237,7 @@ export const App = () => {
     setQueue(sourceTracks.filter((item) => item.filePath));
     setCurrentTrack(track.id);
     setCurrentTrackMeta(track);
+    setPlaybackDuration(track.duration || 0);
     setPlaying(true);
     void window.resonance.notifyPlaybackStarted(track.id).then(refreshAfterPlaybackEvent);
   };
@@ -1951,6 +2252,34 @@ export const App = () => {
     if (nextTrack) {
       playTrack(nextTrack, queue);
     }
+  };
+
+  const advanceQueueOrRecommendations = async () => {
+    if (!currentTrack) return false;
+    const nextTrack = queue[currentQueueIndex + 1];
+    if (nextTrack) {
+      advanceToTrack(nextTrack, queue);
+      return true;
+    }
+
+    if (repeatMode === "all" && queue.length) {
+      advanceToTrack(queue[0], queue);
+      return true;
+    }
+
+    const autoQueue = await window.resonance.getAutoQueue(currentTrack.id, recommendationProfile ?? "balanced", 15);
+    if (autoQueue.length) {
+      advanceToTrack(autoQueue[0], autoQueue);
+      return true;
+    }
+
+    const autoNext = await window.resonance.getAutoNextTrack(currentTrack.id, recommendationProfile ?? "balanced");
+    if (autoNext?.ok && autoNext.track) {
+      advanceToTrack(autoNext.track, [autoNext.track]);
+      return true;
+    }
+
+    return false;
   };
 
   const createPlaylistMutation = useMutation<any, Error, string>({
@@ -1974,7 +2303,16 @@ export const App = () => {
   const handleStartRadio = async (track: Track) => {
     const radioTracks = await window.resonance.getTrackRadio(track.id, recommendationProfile ?? "balanced", 25);
     setQueueDrawerOpen(true);
+    navigate("/radio");
     playTrack(track, [track, ...radioTracks.filter((entry) => entry.id !== track.id)]);
+  };
+
+  const togglePlayback = () => {
+    setPlaying(!usePlayerStore.getState().isPlaying);
+  };
+
+  const cycleRepeatMode = () => {
+    setRepeatMode((current) => current === "off" ? "all" : current === "all" ? "one" : "off");
   };
 
   const handleTogglePin = (item: ShelfCardItem) => {
@@ -2002,6 +2340,42 @@ export const App = () => {
     setHiddenTrackIds([]);
     await Promise.all([recommendationsQuery.refetch(), curationQuery.refetch()]);
   };
+
+  useEffect(() => {
+    if (isMiniMode) return;
+    return window.resonance.onPlaybackCommand((command: PlaybackCommand) => {
+      if (command === "toggle-play") {
+        togglePlayback();
+        return;
+      }
+      if (command === "previous") {
+        playRelative(-1);
+        return;
+      }
+      if (command === "next") {
+        void advanceQueueOrRecommendations();
+      }
+    });
+  }, [currentQueueIndex, queue, currentTrack, recommendationProfile, repeatMode]);
+
+  useEffect(() => {
+    if (isMiniMode) return;
+    return window.resonance.onPlaybackOpenTrack((payload) => {
+      const allTracks = libraryQuery.data?.tracks ?? [];
+      if (!payload?.trackId || !allTracks.length) return;
+      const trackById = new Map(allTracks.map((track) => [track.id, track]));
+      const seedTrack = trackById.get(payload.trackId);
+      if (!seedTrack) return;
+      const queueTracks = (payload.queueTrackIds ?? [payload.trackId])
+        .map((trackId) => trackById.get(trackId))
+        .filter((track): track is Track => Boolean(track));
+      playTrack(seedTrack, queueTracks.length ? queueTracks : [seedTrack]);
+    });
+  }, [libraryQuery.data?.tracks, playTrack]);
+
+  if (isMiniMode) {
+    return <MiniPlayerView state={miniPlaybackState} />;
+  }
 
   if (!recommendationProfile) {
     return <StartingScreen onSelect={handleProfileSelect} />;
@@ -2031,6 +2405,14 @@ export const App = () => {
         queue={queue}
         currentTrack={currentTrack}
         currentTrackId={currentTrackId}
+        currentTime={currentTime}
+        isPlaying={isPlaying}
+        onSeek={(time) => {
+          setCurrentTime(time);
+          if (audioRef.current) {
+            audioRef.current.currentTime = time;
+          }
+        }}
         onPlay={playTrack}
         onStartRadio={handleStartRadio}
         onHideFromRecommendations={handleHideFromRecommendations}
@@ -2064,11 +2446,11 @@ export const App = () => {
           <div className="transport-row">
             <button className="transport-icon" title="Shuffle"><Shuffle size={16} /></button>
             <button className="transport-icon" onClick={() => playRelative(-1)} disabled={currentQueueIndex <= 0} title="Previous"><SkipBack size={16} fill="currentColor" /></button>
-            <button className="transport-play" onClick={() => setPlaying(!isPlaying)} title={isPlaying ? "Pause" : "Play"}>
+            <button className="transport-play" onClick={togglePlayback} title={isPlaying ? "Pause" : "Play"}>
               {isPlaying ? <Pause size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" />}
             </button>
-            <button className="transport-icon" onClick={() => playRelative(1)} disabled={currentQueueIndex === -1 || currentQueueIndex >= queue.length - 1} title="Next"><SkipForward size={16} fill="currentColor" /></button>
-            <button className="transport-icon" title="Repeat"><Repeat size={16} /></button>
+            <button className="transport-icon" onClick={() => { void advanceQueueOrRecommendations(); }} disabled={!currentTrack} title="Next"><SkipForward size={16} fill="currentColor" /></button>
+            <button className={repeatMode === "off" ? "transport-icon" : "transport-icon active"} onClick={cycleRepeatMode} title={repeatMode === "off" ? "Repeat off" : repeatMode === "all" ? "Repeat queue" : "Repeat one"}><Repeat size={16} /></button>
           </div>
           <div className="progress-row">
             <span className="progress-time">{formatDuration(Math.round(currentTime))}</span>
@@ -2076,9 +2458,9 @@ export const App = () => {
               className="progress-slider"
               type="range"
               min={0}
-              max={currentTrack?.duration ?? 0}
-              value={Math.min(currentTime, currentTrack?.duration ?? 0)}
-              style={{ "--progress-pcnt": `${((Math.min(currentTime, currentTrack?.duration ?? 0)) / (currentTrack?.duration || 1)) * 100}%` } as any}
+              max={playbackDuration || currentTrack?.duration || 0}
+              value={Math.min(currentTime, playbackDuration || currentTrack?.duration || 0)}
+              style={{ "--progress-pcnt": `${((Math.min(currentTime, playbackDuration || currentTrack?.duration || 0)) / ((playbackDuration || currentTrack?.duration || 1))) * 100}%` } as any}
               onInput={(event) => {
                 const nextTime = Number(event.currentTarget.value);
                 setCurrentTime(nextTime);
@@ -2087,10 +2469,12 @@ export const App = () => {
                 }
               }}
             />
-            <span className="progress-time">{formatDuration(currentTrack?.duration ?? 0)}</span>
+            <span className="progress-time">{formatDuration(playbackDuration || currentTrack?.duration || 0)}</span>
           </div>
         </div>
         <div className="player-right">
+          <button className="transport-icon" title="Lyrics" onClick={() => navigate("/lyrics")}><Mic2 size={16} /></button>
+          <button className="transport-icon" title="Mini player" onClick={() => { void window.resonance.toggleMiniPlayer(); }}><Disc size={16} /></button>
           <button className="transport-icon" title="Queue" onClick={() => setQueueDrawerOpen((value) => !value)}><ListMusic size={16} /></button>
           <button className="transport-icon" title="Volume"><Volume2 size={16} /></button>
           <div className="volume-wrap">
@@ -2105,7 +2489,7 @@ export const App = () => {
               onInput={(event) => setVolume(Number(event.currentTarget.value))}
             />
           </div>
-          <button className="transport-icon" title="Full screen"><Maximize size={16} /></button>
+          <button className="transport-icon" title={isFullscreen ? "Exit full screen" : "Toggle full screen"} onClick={() => { void window.resonance.toggleFullscreen().then((result) => setIsFullscreen(result.fullscreen)); }}>{isFullscreen ? <Minimize2 size={16} /> : <Maximize size={16} />}</button>
         </div>
       </footer>
       {isQueueDrawerOpen && (
@@ -2131,34 +2515,37 @@ export const App = () => {
       <audio
         ref={audioRef}
         onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime ?? 0)}
+        preload="metadata"
+        onLoadedMetadata={() => {
+          if (!audioRef.current) return;
+          audioRef.current.playbackRate = 1;
+          audioRef.current.defaultPlaybackRate = 1;
+          const realDuration = Number.isFinite(audioRef.current.duration) ? Math.round(audioRef.current.duration) : 0;
+          if (realDuration > 0) {
+            setPlaybackDuration(realDuration);
+          }
+        }}
         onPlay={() => setPlaying(true)}
         onPause={() => setPlaying(false)}
         onEnded={() => {
           if (!currentTrack) return;
 
           void (async () => {
-            const nextTrack = queue[currentQueueIndex + 1];
-            if (nextTrack) {
-              advanceToTrack(nextTrack, queue);
-              void window.resonance.notifyPlaybackFinished(currentTrack.id, currentTrack.duration).then(refreshAfterPlaybackEvent);
+            if (repeatMode === "one" && audioRef.current) {
+              audioRef.current.currentTime = 0;
+              setCurrentTime(0);
+              void audioRef.current.play();
+              void window.resonance.notifyPlaybackFinished(currentTrack.id, playbackDuration || currentTrack.duration).then(refreshAfterPlaybackEvent);
               return;
             }
 
-            const autoQueue = await window.resonance.getAutoQueue(currentTrack.id, recommendationProfile, 15);
-            if (autoQueue.length) {
-              advanceToTrack(autoQueue[0], autoQueue);
-              void window.resonance.notifyPlaybackFinished(currentTrack.id, currentTrack.duration).then(refreshAfterPlaybackEvent);
+            const advanced = await advanceQueueOrRecommendations();
+            if (advanced) {
+              void window.resonance.notifyPlaybackFinished(currentTrack.id, playbackDuration || currentTrack.duration).then(refreshAfterPlaybackEvent);
               return;
             }
 
-            const autoNext = await window.resonance.getAutoNextTrack(currentTrack.id, recommendationProfile);
-            if (autoNext?.ok && autoNext.track) {
-              advanceToTrack(autoNext.track, [autoNext.track]);
-              void window.resonance.notifyPlaybackFinished(currentTrack.id, currentTrack.duration).then(refreshAfterPlaybackEvent);
-              return;
-            }
-
-            await window.resonance.notifyPlaybackFinished(currentTrack.id, currentTrack.duration);
+            await window.resonance.notifyPlaybackFinished(currentTrack.id, playbackDuration || currentTrack.duration);
             await refreshAfterPlaybackEvent();
             setPlaying(false);
           })();
@@ -2167,28 +2554,3 @@ export const App = () => {
     </div>
   );
 };
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

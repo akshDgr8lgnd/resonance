@@ -31,11 +31,19 @@ declare global {
       getTrackRadio: (trackId: string, profile?: "balanced" | "bollywood" | "discovery" | "comfort", limit?: number) => Promise<any[]>;
       getAutoQueue: (currentTrackId?: string, profile?: "balanced" | "bollywood" | "discovery" | "comfort", limit?: number) => Promise<any[]>;
       refreshCurations: () => Promise<any[]>;
+      lookupArtwork: (payload: { kind: "album" | "artist"; name: string; artist?: string | null }) => Promise<string | null>;
+      fetchLyrics: (payload: { title: string; artist: string; album?: string | null; duration?: number | null }) => Promise<{ syncedLyrics?: string | null; plainLyrics?: string | null; instrumental?: boolean } | null>;
+      toggleMiniPlayer: () => Promise<{ visible: boolean }>;
+      getPlaybackState: () => Promise<{ track: any; isPlaying: boolean; currentTime: number; duration: number; volume: number }>;
+      updatePlaybackState: (payload: { track: any; isPlaying: boolean; currentTime: number; duration: number; volume: number }) => Promise<{ track: any; isPlaying: boolean; currentTime: number; duration: number; volume: number }>;
+      sendPlaybackCommand: (command: "toggle-play" | "next" | "previous" | "show-main") => void;
+      onPlaybackState: (callback: (state: { track: any; isPlaying: boolean; currentTime: number; duration: number; volume: number }) => void) => () => void;
+      onPlaybackCommand: (callback: (command: "toggle-play" | "next" | "previous" | "show-main") => void) => () => void;
+      onPlaybackOpenTrack: (callback: (payload: { trackId: string; queueTrackIds?: string[] }) => void) => () => void;
+      toggleFullscreen: () => Promise<{ fullscreen: boolean }> ;
       syncLibrary: () => Promise<any>;
     };
   }
 }
 
 export {};
-
-

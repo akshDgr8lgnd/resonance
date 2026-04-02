@@ -104,6 +104,14 @@ const toHoursSince = (iso: string | null) => {
   return ms / (1000 * 60 * 60);
 };
 
+const VARIANT_TOKENS = ["remix", "live", "slowed", "reverb", "lofi", "lo-fi", "sped", "speed", "karaoke", "instrumental", "cover", "version"];
+
+const detectVariantSignature = (title: string | null | undefined) => {
+  const lowered = (title ?? "").toLowerCase();
+  return VARIANT_TOKENS.filter((token) => lowered.includes(token)).sort().join("|");
+};
+
+
 export class RecommendationService {
   constructor(
     private readonly db: AppDatabase,
@@ -182,6 +190,7 @@ export class RecommendationService {
     const seedArtists = new Set(seedTrack?.artists ?? []);
     const seedAlbum = seedTrack?.album ?? null;
     const seedTitleTokens = new Set(tokenize(seedTrack?.title));
+    const seedVariantSignature = detectVariantSignature(seedTrack?.title);
 
     const scored = tracks
       .map((track) => {
@@ -222,6 +231,10 @@ export class RecommendationService {
         }
 
         if (seedTrack && track.id !== seedTrack.id) {
+          const trackVariantSignature = detectVariantSignature(track.title);
+          if (seedVariantSignature !== trackVariantSignature) {
+            score -= 2.4;
+          }
           if (track.artists.some((artist) => seedArtists.has(artist))) {
             score += weights.seedArtist;
             reasons.push("Similar artist");

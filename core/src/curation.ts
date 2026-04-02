@@ -29,6 +29,23 @@ type HourCountRow = {
 const PROFILES: RecommenderProfile[] = ["balanced", "bollywood", "discovery", "comfort"];
 const STORAGE_PREFIX = "curation.bundle.";
 
+const RADIO_VARIANT_TOKENS = ["remix", "live", "slowed", "reverb", "lofi", "lo-fi", "sped", "speed", "karaoke", "instrumental", "cover", "version"];
+
+const tokenize = (value: string | null | undefined) => {
+  if (!value) return [] as string[];
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter((token) => token.length > 2);
+};
+
+const detectVariantSignature = (title: string | null | undefined) => {
+  const lowered = (title ?? "").toLowerCase();
+  return RADIO_VARIANT_TOKENS.filter((token) => lowered.includes(token)).sort().join("|");
+};
+
+
 const toLocalDateKey = (value = new Date()) => {
   const year = value.getFullYear();
   const month = String(value.getMonth() + 1).padStart(2, "0");
@@ -103,18 +120,47 @@ export class CurationService {
     const seed = this.library.getTrackById(trackId);
     if (!seed) return [] as Track[];
 
-    const sameAlbum = this.library
-      .getTracks()
-      .filter((track) => track.id !== trackId && seed.album && track.album === seed.album);
-    const sameArtist = this.library
-      .getTracks()
-      .filter((track) => track.id !== trackId && track.artists.some((artist) => seed.artists.includes(artist)));
-    const recommended = this.recommendations
-      .getRecommendations(limit * 3, trackId, profile)
-      .map((entry) => entry.track)
-      .filter((track) => track.id !== trackId);
+    const recommendationRank = new Map(
+      this.recommendations
+        .getRecommendations(limit * 6, trackId, profile)
+        .map((entry, index) => [entry.track.id, { score: entry.score, rank: index }])
+    );
+    const seedArtists = new Set(seed.artists.map((artist) => artist.toLowerCase()));
+    const seedTokens = new Set(tokenize(seed.title));
+    const seedVariant = detectVariantSignature(seed.title);
 
-    return dedupeTracks([...sameAlbum, ...sameArtist, ...recommended], limit, new Set([trackId]));
+    const scored = this.library
+      .getTracks()
+      .filter((track) => track.id !== trackId && track.filePath)
+      .map((track) => {
+        const recInfo = recommendationRank.get(track.id);
+        let score = recInfo ? Math.max(18 - recInfo.rank * 0.6, 4) + recInfo.score : 0;
+
+        const sharedArtists = track.artists.filter((artist) => seedArtists.has(artist.toLowerCase())).length;
+        score += sharedArtists * 5.5;
+
+        if (seed.album && track.album === seed.album) score += 1.2;
+
+        const trackTokens = tokenize(track.title);
+        const overlap = trackTokens.filter((token) => seedTokens.has(token)).length;
+        score += Math.min(overlap * 1.25, 2.5);
+
+        const durationGap = Math.abs((track.duration || 0) - (seed.duration || 0));
+        if (durationGap <= 12) score += 3;
+        else if (durationGap <= 30) score += 1.8;
+        else if (durationGap <= 60) score += 0.7;
+        else score -= 1.5;
+
+        const trackVariant = detectVariantSignature(track.title);
+        if (trackVariant !== seedVariant) score -= 4.5;
+        if (track.album && seed.album && track.album === seed.album && sharedArtists === 0) score -= 1.5;
+
+        return { track, score };
+      })
+      .filter((item) => item.score > 0.25)
+      .sort((a, b) => b.score - a.score || a.track.title.localeCompare(b.track.title));
+
+    return dedupeTracks(scored.map((item) => item.track), limit, new Set([trackId]));
   }
 
   getAutoQueue(currentTrackId?: string, profile: RecommenderProfile = "balanced", limit = 15) {
