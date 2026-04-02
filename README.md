@@ -1,123 +1,88 @@
-# Resonance
+# 🎵 Resonance
+**Your Music, Your Server, Your Rules.**
 
-**Resonance** is a high-performance, Spotify-inspired desktop music player built with Electron, React, and SQLite. It provides a premium listening experience for your local media library, and now exposes a small self-hostable control plane for remote clients and MCP-compatible assistants.
+A sleek, fully self-hosted desktop music player that turns YouTube into a permanent, private, smart music library. Beautiful Spotify-like UI + offline-first ownership + AI-ready control.
 
+---
 
-## Key Features
+## ✨ Features
 
-- **High-Fidelity UI**: A pixel-perfect, dark-mode interface inspired by the world's leading music streaming service.
-- **Smart Library Management**: Automatically organizes your music into Albums and Artists with intelligent cross-album deduplication.
-- **Advanced Search**: Integrated metadata search via iTunes API with YouTube web search enrichment (no YouTube Data API key required).
-- **Concurrency-Limited Downloads**: Professional-grade background download manager with queueing and semaphore-based concurrency control.
-- **Sound Capsule**: Built-in listening analytics featuring playback heatmaps, weekly stats, and listening streaks.
-- **Disk Usage Tracking**: Integrated storage counter to monitor your library's footprint.
-- **Embedded Control API**: Local authenticated HTTP endpoints for library, search, download, playback state, play, and radio.
-- **MCP Server Provision**: A lightweight stdio MCP bridge so local AI assistants can search, play, download, and control Resonance.
-- **Cross-Platform**: Designed for Windows and macOS with native-feeling interactions.
+### 📥 Intelligent Local Library
+* Search any track or artist → instant `yt-dlp` download with perfect metadata
+* iTunes-powered ID3 tagging + high-res album art (no more garbage filenames)
+* Smart concurrency queue with CPU/IP throttling for massive playlist imports
+* 100% offline-first — your files live on your drive forever
 
-## Tech Stack
+### 🎧 Premium Playback
+* Clean, modern Electron UI with fluid queue, drag-and-drop, and gapless playback
+* System tray + global hotkeys for true desktop experience
 
-- **Core**: TypeScript, Node.js, SQLite (via `better-sqlite3`)
-- **UI**: React 18, Vite, CSS3 (Vanilla)
-- **Engine**: Electron 30+
-- **Media Tools**: `yt-dlp` for media acquisition, `ffmpeg` (optional) for processing.
+### 📊 Sound Capsule — Your Private Wrapped
+* Deep local analytics: top tracks/artists, listening heatmap, streaks, total time
+* All data stored in local SQLite — zero telemetry, zero cloud
 
-## Getting Started
+### 🤖 AI-Ready MCP Bridge
+* Full Model Context Protocol server so LLMs (Claude, Cursor, etc.) can natively search, play, queue radio, or download tracks
+* Example: “Start a Bollywood radio from my most-completed tracks”
 
-### Option 1: Download the App
+### 🔄 Multi-Device Handoff
+* Phone can tell desktop to play or download any track instantly
 
-If you just want to use Resonance, download the Windows `.exe` from the latest release:
-- [Latest Release](https://github.com/akshDgr8lgnd/resonance/releases/latest)
+---
 
-### Option 2: Run from Source
+## 🚀 Getting Started
 
-1. **Prerequisites**
-- [Node.js](https://nodejs.org/) (Version 20 or higher)
-- `npm` (v10+) or `yarn`
+### Prerequisites
+* Node.js 20+
+* [yt-dlp](https://github.com/yt-dlp/yt-dlp#installation) (must be in your PATH)
+* FFmpeg (required by `yt-dlp` for merging + tagging)
 
-2. **Environment Setup**
-Create a `.env` file in the root directory:
+### Installation
+
 ```bash
-APP_PORT=3939
-```
-`APP_PORT` is optional. If omitted, the app uses the default configured port.
+git clone [https://github.com/akshDgr8lgnd/resonance.git](https://github.com/akshDgr8lgnd/resonance.git)
+cd resonance
 
-3. **Run in Development**
-```bash
+# Install all workspaces
+npm install
+
+# Development mode (recommended first)
 npm run dev
+For production builds:
+
+Bash
+npm run build
+npm run dist:win   # or dist:mac / dist:linux depending on your OS
+The app will start with a built-in Express server + MCP endpoint on port 3939.
 ```
 
-## MCP Server
 
-Resonance ships with a stdio MCP bridge in the `server` workspace. It talks to the running desktop app through the embedded local API, so self-hosters can point Claude Desktop, Open WebUI, or other MCP clients at Resonance and let them search, play, download, and inspect playback.
 
-### Start the MCP bridge
+🛠️ Tech Stack
+Frontend: Electron + Vite + TypeScript (renderer)
 
-From the repo root:
-```bash
-npm run build -w server
-npm run mcp -w server
-```
+Core: TypeScript monorepo with workspaces (core, server, app)
 
-### Required environment variables
+Backend: Express + Model Context Protocol (MCP)
 
-- `RESONANCE_BASE_URL`
-  Default: `http://127.0.0.1:3939`
-- `RESONANCE_API_TOKEN`
-  Read this from Resonance inside `Settings -> Pairing`, or from the authenticated `GET /settings/pairing` response.
+Database: sql.js (SQLite)
 
-### Example Claude Desktop config
+Download: yt-dlp + iTunes Search API
 
-```json
-{
-  "mcpServers": {
-    "resonance": {
-      "command": "node",
-      "args": ["C:/path/to/resonance/server/dist/mcp.js"],
-      "env": {
-        "RESONANCE_BASE_URL": "http://127.0.0.1:3939",
-        "RESONANCE_API_TOKEN": "paste-token-here"
-      }
-    }
-  }
-}
-```
+Build: electron-builder + tsup
 
-### Included MCP tools
+🤝 Contributing
+Contributions, issues, and feature requests are welcome! Feel free to check the issues page.
 
-- `resonance_health`
-- `resonance_library_summary`
-- `resonance_search`
-- `resonance_play_track`
-- `resonance_playback_command`
-- `resonance_playback_state`
-- `resonance_download`
-- `resonance_start_radio`
+Fork the project.
 
-## Local Control API
+Create your feature branch (git checkout -b feature/AmazingFeature).
 
-These endpoints are served by the desktop app on the configured local port and require `Authorization: Bearer <token>` unless noted otherwise.
+Commit your changes (git commit -m 'Add some AmazingFeature').
 
-- `GET /health`
-- `GET /library`
-- `POST /search`
-- `POST /download`
-- `GET /download-jobs/:id`
-- `GET /playback/state`
-- `POST /playback/command`
-- `POST /playback/play`
-- `POST /playback/radio`
-- `GET /capsule/history`
-- `GET /settings/pairing`
+Push to the branch (git push origin feature/AmazingFeature).
 
-## Disclaimer & Legal Notice
+Open a Pull Request.
 
-**Resonance is created for educational purposes and personal use only.**
-
-1. **YouTube ToS**: This application uses `yt-dlp` to facilitate media acquisition. Users are responsible for complying with the [YouTube Terms of Service](https://www.youtube.com/t/terms), which generally prohibit downloading content.
-2. **Copyright**: Ensure you have the legal right to any media you download or store within the application. The creators of Resonance do not condone or encourage copyright infringement.
-3. **Trademark**: Resonance is an independent "Spotify-inspired" project. It is not affiliated with, endorsed by, or sponsored by Spotify AB.
-
-## License
-
-Distributed under the MIT License. See `LICENSE` for more information.
+📝 License
+Distributed under the MIT License. See LICENSE for more information.
