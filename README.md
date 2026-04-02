@@ -2,7 +2,6 @@
 
 **Resonance** is a high-performance, Spotify-inspired desktop music player built with Electron, React, and SQLite. It provides a premium listening experience for your local media library, and now exposes a small self-hostable control plane for remote clients and MCP-compatible assistants.
 
-![App Preview](https://via.placeholder.com/800x450.png?text=Resonance+Music+Player)
 
 ## Key Features
 
